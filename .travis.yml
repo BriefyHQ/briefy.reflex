@@ -1,0 +1,21 @@
+language: python
+python: 3.6
+sudo: false
+branches:
+  only:
+  - master
+  - develop
+env:
+  - TOX_ENV=py35
+  - TOX_ENV=py36
+  - TOX_ENV=lint
+  - TOX_ENV=coverage
+
+install:
+- pip install -r requirements/dev.txt
+
+script:
+- tox -e $TOX_ENV
+
+after_success:
+- make docs
