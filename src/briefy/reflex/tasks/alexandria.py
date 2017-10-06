@@ -195,7 +195,7 @@ def run(order):
 
 
 def main():
-    """Main function."""
+    """Create assets for all orders in one project."""
     orders = leica.run()
     task_results = []
     for order in orders:
