@@ -2,9 +2,11 @@
 from briefy.common.utilities.interfaces import IRemoteRestEndpoint
 from briefy.common.utils.data import Objectify
 from briefy.reflex import config
+from briefy.reflex import logger
 from briefy.reflex.celery import app
 from briefy.reflex.tasks import leica
 from briefy.reflex.tasks import gdrive
+from briefy.reflex.tasks import s3
 from briefy.reflex.tasks import ReflexTask
 from celery import chain
 from celery import group
@@ -16,7 +18,7 @@ import uuid
 
 
 @app.task(bind=True, base=ReflexTask)
-def create_collections(self, order_payload: dict) -> t.Sequence[dict]:
+def create_collections(self, order_payload: dict) -> dict:
     """Create all collections in Alexandria if the do not exists.
 
     :param self: reference to the task class instance
@@ -73,29 +75,40 @@ def create_collections(self, order_payload: dict) -> t.Sequence[dict]:
     return library_api.get(order.id)
 
 
-@app.task(bind=True, base=ReflexTask)
-def add_or_update_asset(self, image_payload: dict, collection_payload: dict) -> dict:
+@app.task(base=ReflexTask)
+def add_or_update_asset(image_payload: dict, collection_payload: dict) -> t.Tuple[str, str]:
     """Add one assets in Alexandria if it do not exists.
 
-    :param self: reference to the task class instance
     :param image_payload: image payload from briefy.gdrive
     :param collection_payload: payload of order collection from briefy.alexandria
-    :return: asset payload from briefy.alexandria
+    :return: asset file_path
     """
     collection = Objectify(collection_payload)
     factory = getUtility(IRemoteRestEndpoint)
     library_api = factory(config.ALEXANDRIA_BASE, 'assets', 'Assets')
     image = Objectify(image_payload)
     data = library_api.query({'slug': image.id})['data']
+
+    if image.mimeType == 'image/jpeg':
+        extension = 'jpg'
+    elif len(image.name) >= 3:
+        extension = image.name[-3:]
+    else:
+        extension = 'none'
+
     if not data:
         tags = ['gdrive', 'image']
         tags.extend(collection.tags)
+        asset_id = uuid.uuid4()
+        file_name = f'{asset_id}.{extension}'
+        source_path = f'{config.AWS_ASSETS_SOURCE}/{file_name}'
         payload = {
             'slug': image.id,
             'id': uuid.uuid4(),
             'title': image.name,
             'description': '',
             'content_type': image.mimeType,
+            'source_path': source_path,
             'tags': tags,
             'collections': [collection.id],
             'size': image.size,
@@ -115,11 +128,25 @@ def add_or_update_asset(self, image_payload: dict, collection_payload: dict) -> 
             data.get('collections').append(collection.id)
             data = library_api.put(data)
 
-    return data
+        asset_id = data.get('id')
+        file_name = f'{asset_id}.{extension}'
+
+    if not data:
+        raise RuntimeError(f'Failed to add or update asset: {image_payload}')
+
+    # in this case we should have one more directory
+    if collection.content_type == 'application/collection.leica-order.requirement':
+        order_id = collection.parent_id
+        directory = f'{config.TMP_PATH}/{order_id}/{collection.id}'
+    else:
+        order_id = collection.id
+        directory = f'{config.TMP_PATH}/{order_id}'
+
+    logger.info(f'Asset added to alexandria. Path to save file: {directory}/{file_name}')
+    return directory, file_name
 
 
-@app.task(base=ReflexTask)
-def create_assets(collection_payload: dict, order_payload: dict) -> t.Sequence[dict]:
+def create_assets(collection_payload: dict, order_payload: dict) -> group:
     """Create all assets in Alexandria if the do not exists.
 
     :param collection_payload: payload of order collection from briefy.alexandria
@@ -130,40 +157,52 @@ def create_assets(collection_payload: dict, order_payload: dict) -> t.Sequence[d
     library_api = factory(config.ALEXANDRIA_BASE, 'collections', 'Collections')
     order = Objectify(order_payload)
 
+    tasks = []
     if order.requirement_items:
         for item in order.requirement_items:
             folder_contents = gdrive.folder_contents(item.folder_id)
             images = folder_contents.get('images')
-            collection = library_api.get(item.id)
-            group_task = group(
-                [add_or_update_asset.s(image, collection) for image in images]
-            )
-            group_task()
+            collection_payload = library_api.get(item.id)
+            image_tasks = [
+                chain(
+                    add_or_update_asset.s(image, collection_payload),
+                    gdrive.download_file.s(image),
+                    s3.upload_file.s()
+                ) for image in images
+            ]
+
+            tasks.extend(image_tasks)
 
     else:
         folder_contents = gdrive.folder_contents(order.delivery.gdrive)
         images = folder_contents.get('images')
-        group_task = group(
-            [add_or_update_asset.s(image, collection_payload) for image in images]
-        )
-        group_task()
+        image_tasks = [
+            chain(
+                add_or_update_asset.s(image, collection_payload),
+                gdrive.download_file.s(image),
+                s3.upload_file.s()
+            ) for image in images
+        ]
+        tasks.extend(image_tasks)
 
-    return collection_payload
+    return group(tasks)
 
 
-def run():
+def run(order):
     """Execute task."""
-    orders = leica.run()
-    task_group = group(
-        [chain(create_collections.s(order), create_assets.s(order)) for order in orders]
-    )
-    collections = task_group().get()
+    collection = create_collections(order)
+    return create_assets(collection, order)()
 
-    # now query all data after add items
+
+def main():
+    """Main function."""
+    orders = leica.run()
+    task_results = []
+    for order in orders:
+        task_results.append(run(order))
+
     results = []
-    factory = getUtility(IRemoteRestEndpoint)
-    library_api = factory(config.ALEXANDRIA_BASE, 'collections', 'Collections')
-    for item in collections:
-        for child in item.get('children'):
-            results.append(library_api.get(child.get('id')))
+    for task in task_results:
+        results.extend(task.join())
+
     return results

@@ -1,8 +1,12 @@
 """Tasks to query data from google drive."""
+from briefy.common.utils.data import Objectify
 from briefy.gdrive import api
 from briefy.reflex.celery import app
 from briefy.reflex.tasks import ReflexTask
 from celery import group
+
+import os
+import typing as t
 
 
 @app.task(bind=True, base=ReflexTask)
@@ -14,6 +18,26 @@ def folder_contents(self, folder_id: str) -> dict:
     :return: dict with folder contents payload
     """
     return api.contents(folder_id)
+
+
+@app.task(base=ReflexTask)
+def download_file(destiny: t.Tuple[str, str], image_payload: dict) -> t.Tuple[str, str]:
+    """Download file from a gdrive api and save in the file system.
+
+    :param destiny: tuple composed of (directory, file_name)
+    :param image_payload: google drive file id
+    :return: destiny file path of downloaded file
+    """
+    directory, file_name = destiny
+    image = Objectify(image_payload)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    file_path = f'{directory}/{file_name}'
+    with open(file_path, 'wb') as data:
+        data.write(api.get_file(image.id))
+
+    return directory, file_name
 
 
 def run(orders):

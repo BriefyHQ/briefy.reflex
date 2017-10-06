@@ -10,3 +10,6 @@ History
     * Task module to query in google drive folder contents of delivery folder (rudaporto).
     * Task module to add collections and assets in briefy.alexandria from Leica Orders payload (rudaporto).
     * Added Dockerfile, Procfile and docker scripts to execute celery tasks_worker (rudaporto).
+    * Added new task to download file from gdrive api and save in the file system (rudaporto).
+    * Added new task to upload file from the file system to amazon s3 bucket (rudaporto).
+    * Updated tasks.alexandria.create_assets to create a chain to add_or_update_assets, download from gdrive and upload to s3 (rudaporto).
