@@ -10,13 +10,16 @@ import typing as t
 
 
 @app.task(bind=True, base=ReflexTask)
-def folder_contents(self, folder_id: str) -> dict:
+def folder_contents(self, folder_id: str, extract_id=False) -> dict:
     """Return folder contents from gdrive uri.
 
     :param self: task class instance
     :param folder_id: gdrive folder id
+    :param extract_id: if true the folder_id value should be parsed to get the folder_id from url
     :return: dict with folder contents payload
     """
+    if extract_id:
+        folder_id = api.get_folder_id_from_url(folder_id)
     return api.contents(folder_id)
 
 

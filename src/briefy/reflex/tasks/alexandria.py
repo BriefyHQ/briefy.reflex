@@ -182,7 +182,7 @@ def create_assets(collection_payload: dict, order_payload: dict) -> group:
             tasks.extend(image_tasks)
 
     else:
-        folder_contents = gdrive.folder_contents(order.delivery.gdrive)
+        folder_contents = gdrive.folder_contents(order.delivery.gdrive, extract_id=True)
         images = folder_contents.get('images')
         image_tasks = [
             chain(
