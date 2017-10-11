@@ -64,10 +64,10 @@ class Worker(QueueWorker):
         :returns: Status from the process
         """
         body = message.body
-        assignment = Objectify(body.get('data', {}))
+        data = Objectify(body.get('data', {}))
         event = body.get('event_name', '')
         message_id = body.get('id', '')
-        assignment.sqs_message_id = message_id
+        data.sqs_message_id = message_id
         dispatch = Objectify(self.dispatch_map.get(event, {}))
         if not dispatch:
             logger.info('Unknown event type - message {0} ignored'.format(body['id']))
@@ -75,20 +75,20 @@ class Worker(QueueWorker):
 
         logger.info('Processing event {event}'.format(event=event))
         try:
-            status, payload = dispatch.action(assignment)
+            status, payload = dispatch.action(data)
         except Exception as error:
             msg = 'Unknown exception raised on \'{0}\' assignment {1}. \n' \
                   'Error: {2} \n Payload: {3}'
             logger.error(
                 msg.format(
                     dispatch.name,
-                    assignment.id,
+                    data.id,
                     error,
-                    assignment.dct
+                    data._dct
                 )
             )
             raise  # Let newrelic deal with it.
-        response = ResponseWrapper(assignment, payload)
+        response = ResponseWrapper(data, payload)
         notification_action = dispatch.notification_actions[status]
         event = notification_action.action(response)
         message = notification_action.message

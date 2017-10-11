@@ -8,6 +8,7 @@ from briefy.reflex.tasks import leica
 from briefy.reflex.tasks import gdrive
 from briefy.reflex.tasks import s3
 from briefy.reflex.tasks import ReflexTask
+from briefy.reflex.queue.worker import ImportAssetsResult
 from celery import chain
 from celery import group
 from slugify import slugify
@@ -188,10 +189,17 @@ def create_assets(collection_payload: dict, order_payload: dict) -> group:
     return group(tasks)
 
 
-def run(order):
+def run(order, async=False) -> tuple:
     """Execute task."""
     collection = create_collections(order)
-    return create_assets(collection, order)()
+    result = create_assets(collection, order)()
+    status = ImportAssetsResult.success
+
+    if not async:
+        assets = result.join()
+        result = {'assets': assets}
+
+    return status, result
 
 
 def main():
@@ -199,7 +207,8 @@ def main():
     orders = leica.run()
     task_results = []
     for order in orders:
-        task_results.append(run(order))
+        status, result = run(order, async=True)
+        task_results.append(result)
 
     results = []
     for task in task_results:
