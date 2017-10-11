@@ -13,3 +13,6 @@ History
     * Added new task to download file from gdrive api and save in the file system (rudaporto).
     * Added new task to upload file from the file system to amazon s3 bucket (rudaporto).
     * Updated tasks.alexandria.create_assets to create a chain to add_or_update_assets, download from gdrive and upload to s3 (rudaporto).
+    * Added queue reader for briefy.reflex (rudaporto).
+    * Added dispatch worker for briefy.reflex with new entry point, docker script, newrelic config and Procfile entry (rudaporto).
+    * Added result events for briefy.reflex (rudaporto).
