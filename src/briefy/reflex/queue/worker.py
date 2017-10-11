@@ -9,7 +9,6 @@ from briefy.reflex.config import NEW_RELIC_LICENSE_KEY
 from briefy.reflex.tasks import alexandria
 from zope.component import getUtility
 
-import enum
 import newrelic.agent
 
 
@@ -124,20 +123,13 @@ def run_worker(queue_name: str, worker_name: str, dispatch_map: dict):
         logger.exception(f'{name} exiting due to an exception.', exc_info=exc)
 
 
-class ImportAssetsResult(enum.Enum):
-    """Import assets from Gdrive to alexandria and S3."""
-
-    success = 'success'
-    failure = 'failure'
-
-
 NOTIFICATION_ACTIONS = {
-    ImportAssetsResult.success: NA(
+    alexandria.AssetsImportResult.success: NA(
         events.ImportAssetsSuccess,
         True,
         'Task for {event} was processed successfully'
     ),
-    ImportAssetsResult.failure: NA(
+    alexandria.AssetsImportResult.failure: NA(
         events.ImportAssetsFailure,
         True,
         'Task for {event} was processed with failure'

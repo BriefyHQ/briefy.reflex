@@ -8,14 +8,21 @@ from briefy.reflex.tasks import leica
 from briefy.reflex.tasks import gdrive
 from briefy.reflex.tasks import s3
 from briefy.reflex.tasks import ReflexTask
-from briefy.reflex.queue.worker import ImportAssetsResult
 from celery import chain
 from celery import group
 from slugify import slugify
 from zope.component import getUtility
 
+import enum
 import typing as t
 import uuid
+
+
+class AssetsImportResult(enum.Enum):
+    """Import assets from Gdrive to alexandria and S3."""
+
+    success = 'success'
+    failure = 'failure'
 
 
 @app.task(bind=True, base=ReflexTask)
@@ -193,7 +200,7 @@ def run(order, async=False) -> tuple:
     """Execute task."""
     collection = create_collections(order)
     result = create_assets(collection, order)()
-    status = ImportAssetsResult.success
+    status = AssetsImportResult.success
 
     if not async:
         assets = result.join()
