@@ -1,0 +1,6 @@
+<configure xmlns="http://namespaces.zope.org/zope">
+
+    <!-- Reflex queue -->
+    <utility name="reflex.queue" factory=".utility.Queue" provides="briefy.common.queue.IQueue" />
+
+</configure>

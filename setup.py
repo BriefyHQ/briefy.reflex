@@ -48,5 +48,6 @@ setup(
     entry_points="""
     [console_scripts]
       tasks_worker = briefy.reflex.tasks.worker:main
+      queue_worker = briefy.reflex.queue.worker:main
     """,
 )

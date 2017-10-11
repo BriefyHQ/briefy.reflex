@@ -1,5 +1,12 @@
 """briefy.reflex config."""
-from prettyconf import config  # noQA
+from briefy.common.config import _queue_suffix
+from prettyconf import config
+
+# Reflex
+REFLEX_QUEUE = config('REFLEX_QUEUE', default='reflex-{0}'.format(_queue_suffix))
+
+# NewRelic
+NEW_RELIC_LICENSE_KEY = config('NEW_RELIC_LICENSE_KEY', default='')
 
 # CELERY
 TASKS_BROKER = config('TASKS_BROKER', default='redis://localhost:6379/1')
