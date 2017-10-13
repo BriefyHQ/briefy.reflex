@@ -11,6 +11,9 @@ with open(os.path.join(here, 'HISTORY.rst')) as f:
     CHANGES = f.read()
 
 requires = [
+    'briefy.common[db]',
+    'briefy.gdrive',
+    'celery',
     'prettyconf',
     'setuptools',
 ]
@@ -42,5 +45,9 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     install_requires=requires,
-    entry_points='',
+    entry_points="""
+    [console_scripts]
+      tasks_worker = briefy.reflex.tasks.worker:main
+      queue_worker = briefy.reflex.queue.worker:main
+    """,
 )
