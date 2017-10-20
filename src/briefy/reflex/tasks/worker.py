@@ -12,7 +12,7 @@ def main():
         '--events',
         '--loglevel=INFO',
     ]
-    if ENV in ('production', 'staging'):
+    if ENV in ('production', 'staging', 'development'):
         argv.append('--uid=33')
     app.worker_main(argv)
 
