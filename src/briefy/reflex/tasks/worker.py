@@ -8,11 +8,11 @@ def main():
     """Start celery worker."""
     argv = [
         'worker',
-        '--concurrency=20',
+        '--concurrency=5',
         '--events',
         '--loglevel=INFO',
     ]
-    if ENV in ('production', 'staging'):
+    if ENV in ('production', 'staging', 'development'):
         argv.append('--uid=33')
     app.worker_main(argv)
 
