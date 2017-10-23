@@ -5,7 +5,6 @@ from briefy.reflex.tasks import ReflexTask
 
 import boto3
 import json
-import time
 
 
 GDRIVE_DELIVERY_STREAM = 'gdrive_delivery_contents_live'
@@ -44,6 +43,7 @@ class KinesisConsumer:
         self.stream = stream
         self.update()
         self._iterators = {}
+        self._empty_shards = []
 
         # TODO: this should be persisted
         self._sequences = {}
@@ -96,13 +96,17 @@ class KinesisConsumer:
     @property
     def shards(self) -> list:
         """Stream shard ids."""
-        return self.description.get('Shards', [])
+        return [
+            shard for shard in self.description.get('Shards', [])
+            if shard['ShardId'] not in self._empty_shards
+        ]
 
-    def run(self):
+    def run(self, item_callback=None):
         """Start processing all shards."""
+        self.item_callback = item_callback
         logger.info('Starting consumer. Use CTRL+C to stop.')
-        while True:
-            time.sleep(0.5)
+        while self.shards:
+            # time.sleep(0.5)
             for shard in self.shards:
                 shard_id = shard['ShardId']
                 shard_iterator = self.get_iterator(shard)
@@ -119,9 +123,14 @@ class KinesisConsumer:
 
         if len(records) == 0:
             logger.info(f'Nothing to process for shard: "{shard_id}"')
+            self._empty_shards.append(shard_id)
         else:
             for item in records:
-                logger.info(str(item))
+                if self.item_callback:
+                    data = json.loads(item.get('Data'))
+                    order = data.get('order')
+                    contents = data.get('contents')
+                    self.item_callback(order, contents)
                 self._sequences[shard_id] = item['SequenceNumber']
 
         next_shard_iterator = response['NextShardIterator']
@@ -129,5 +138,49 @@ class KinesisConsumer:
 
 
 if __name__ == '__main__':
+    # IMPORTANT: to load the data into kinesis
+    # uri = 'https://s3.eu-central-1.amazonaws.com/ms-ophelie-live/reports/leica/finance/20171023/20171023003100-orders-all.csv'  # noQA
+    # from briefy.reflex.tasks.leica import read_all_delivery_contents
+    # read_all_delivery_contents(uri)
+
+    TOTAL_IMG_PER_ORDER = {}
+    TO_DEBUG_LINKS = {}
+    TO_DEBUG_ZERO = {}
+    FOLDER_NAMES = [
+        'originals', 'original', 'jpeg', 'original sizes',
+        'original size', 'original format', 'PRINT'
+    ]
+
+    def callback(order, contents):
+        """Compute the values for each order."""
+        order_id = order.get('uid')
+        number_images = len(contents.get('images'))
+        # sub_folders = [
+        #    folder for folder in contents.get('folders')
+        #    if folder.get('name').lower().strip() in FOLDER_NAMES
+        # ]
+        sub_folders = contents.get('folders')
+        number_additional_images = sum([len(folder.get('images')) for folder in sub_folders])
+        total_images = number_images + number_additional_images
+        TOTAL_IMG_PER_ORDER[order_id] = {
+            'total_images': total_images
+        }
+        all_sub_folders = [folder.get('name') for folder in contents.get('folders')]
+        if total_images <= 1:
+            data = {
+                'folders': all_sub_folders,
+                'delivery_link': order.get('delivery_link')
+            }
+            if all_sub_folders:
+                TO_DEBUG_LINKS[order_id] = data
+            else:
+                TO_DEBUG_ZERO[order_id] = data
+            logger.info(order_id)
+            logger.info(order.get('delivery_link'))
+            logger.info(all_sub_folders)
+
     c = KinesisConsumer(GDRIVE_DELIVERY_STREAM)
-    c.run()
+    c.run(callback)
+
+    TOTAL_IMG = sum([value.get('total_images') for value in TOTAL_IMG_PER_ORDER.values()])
+    logger.info(f'Total of images found: {TOTAL_IMG}')
