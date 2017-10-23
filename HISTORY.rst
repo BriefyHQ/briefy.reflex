@@ -16,3 +16,5 @@ History
     * Added queue reader for briefy.reflex (rudaporto).
     * Added dispatch worker for briefy.reflex with new entry point, docker script, newrelic config and Procfile entry (rudaporto).
     * Added result events for briefy.reflex (rudaporto).
+    * Added function to read data from orders csv report and query google drive deivery folder and store result on kinesis (rudaport).
+    * Added initial consumer to consume data from kinesis (rudaporto).
