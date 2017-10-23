@@ -95,7 +95,7 @@ class KinesisConsumer:
 
     @property
     def shards(self) -> list:
-        """Stream shard ids"""
+        """Stream shard ids."""
         return self.description.get('Shards', [])
 
     def run(self):
