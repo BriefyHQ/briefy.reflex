@@ -8,7 +8,7 @@ def main():
     """Start celery worker."""
     argv = [
         'worker',
-        '--concurrency=5',
+        '--concurrency=3',
         '--events',
         '--loglevel=INFO',
     ]
