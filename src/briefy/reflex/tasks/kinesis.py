@@ -186,9 +186,6 @@ if __name__ == '__main__':
     c = KinesisConsumer(GDRIVE_DELIVERY_STREAM)
     c.run(callback)
 
-    TOTAL_IMG = sum([value.get('total_images') for value in TOTAL_IMG_PER_ORDER.values()])
-    logger.info(f'Total of images found: {TOTAL_IMG}')
-
     fieldnames = ['briefy_id', 'number_required_assets', 'total_images', 'delivery_link']
     with open('/tmp/orders-image-inventory.csv', 'w') as fout:
         writer = csv.DictWriter(fout, fieldnames)
@@ -201,3 +198,6 @@ if __name__ == '__main__':
         writer.writeheader()
         for key, value in TO_DEBUG_ZERO.items():
             writer.writerow(value)
+
+    TOTAL_IMG = sum([value.get('total_images') for value in TOTAL_IMG_PER_ORDER.values()])
+    logger.info(f'Total of images found: {TOTAL_IMG}')
