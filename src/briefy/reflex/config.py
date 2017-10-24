@@ -25,3 +25,7 @@ TMP_PATH = config('TMP_PATH', default='/tmp/assets')
 
 # aws assets base
 AWS_ASSETS_SOURCE = config('AWS_ASSETS_SOURCE', default='source/assets')
+
+# celery
+CELERY_CONCURRENCY = config('CELERY_CONCURRENCY', default=2)
+CELERY_LOG_LEVEL = config('CELERY_LOG_LEVEL', default='INFO')
