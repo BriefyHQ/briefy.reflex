@@ -5,7 +5,9 @@ from briefy.reflex.celery import app
 from briefy.reflex.tasks import ReflexTask
 from celery import group
 
+import datetime
 import os
+import time
 import typing as t
 
 
@@ -52,10 +54,17 @@ def move(self, origin: str, destiny: str, extract_ids=False) -> dict:
     :param extract_ids: if true the folder_id value should be parsed to get the folder_id from url
         :return: True if success and False if failure
     """
+    start = datetime.datetime.now()
     if extract_ids:
         origin = api.get_folder_id_from_url(origin)
         destiny = api.get_folder_id_from_url(destiny)
-    return api.move(origin, destiny)
+    response = api.move(origin, destiny)
+    end = datetime.datetime.now()
+    delta = (end - start).microseconds / 1000000.0
+    if delta < 0.1:
+        wait = 0.1 - delta
+        time.sleep(wait)
+    return response
 
 
 def move_all_files(origin_folder: str, destiny_folder: str):
