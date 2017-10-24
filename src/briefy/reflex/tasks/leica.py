@@ -86,7 +86,7 @@ def read_all_delivery_contents(self, csv_uri: str):
         ) for order in orders if order.get('delivery_link')
     ]
     task_group = group(task_list)
-    return task_group().join()
+    return task_group()
 
 
 def run():

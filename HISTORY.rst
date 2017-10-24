@@ -18,3 +18,6 @@ History
     * Added result events for briefy.reflex (rudaporto).
     * Added function to read data from orders csv report and query google drive delivery folder and store result on kinesis (rudaporto).
     * Added initial consumer to read data from kinesis (rudaporto).
+    * Added to gdrive a new task to move a file to a new folder (rudaporto).
+    * Added to gdrive a function to build a group task to move all files from one folder to another (rudaporto).
+

@@ -43,6 +43,34 @@ def download_file(destiny: t.Tuple[str, str], image_payload: dict) -> t.Tuple[st
     return directory, file_name
 
 
+@app.task(bind=True, base=ReflexTask)
+def move(self, origin: str, destiny: str, extract_ids=False) -> dict:
+    """Return folder contents from gdrive uri.
+
+    :param origin: origin item gdrive ID
+    :param destiny: destiny folder ID
+    :param extract_ids: if true the folder_id value should be parsed to get the folder_id from url
+        :return: True if success and False if failure
+    """
+    if extract_ids:
+        origin = api.get_folder_id_from_url(origin)
+        destiny = api.get_folder_id_from_url(destiny)
+    return api.move(origin, destiny)
+
+
+def move_all_files(origin_folder: str, destiny_folder: str):
+    """Move all files from one folder to another.
+
+    :param origin_folder: origin folder id
+    :param destiny_folder: destiny folder id
+    :return: moved files
+    """
+    files_to_move = api.list(origin_folder)
+    task_list = [move.s(file.get('id'), destiny_folder) for file in files_to_move]
+    task_group = group(task_list)
+    return task_group()
+
+
 def run(orders):
     """List assets from all folders."""
     tasks = []
