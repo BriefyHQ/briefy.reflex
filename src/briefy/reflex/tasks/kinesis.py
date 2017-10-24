@@ -4,6 +4,7 @@ from briefy.reflex.celery import app
 from briefy.reflex.tasks import ReflexTask
 
 import boto3
+import csv
 import json
 
 
@@ -151,36 +152,52 @@ if __name__ == '__main__':
         'original size', 'original format', 'PRINT'
     ]
 
-    def callback(order, contents):
+    def callback(order, contents, filter_folders=True):
         """Compute the values for each order."""
-        order_id = order.get('uid')
+        order_id = order.get('briefy_id')
+        delivery_link = order.get('delivery_link')
         number_images = len(contents.get('images'))
-        # sub_folders = [
-        #    folder for folder in contents.get('folders')
-        #    if folder.get('name').lower().strip() in FOLDER_NAMES
-        # ]
-        sub_folders = contents.get('folders')
+        number_required_assets = order.get('number_required_assets')
+        if filter_folders:
+            sub_folders = [
+                folder for folder in contents.get('folders')
+                if folder.get('name').lower().strip() in FOLDER_NAMES
+            ]
+        else:
+            sub_folders = contents.get('folders')
+
         number_additional_images = sum([len(folder.get('images')) for folder in sub_folders])
         total_images = number_images + number_additional_images
-        TOTAL_IMG_PER_ORDER[order_id] = {
-            'total_images': total_images
+        data = {
+            'total_images': total_images,
+            'briefy_id': order_id,
+            'delivery_link': delivery_link,
+            'number_required_assets': number_required_assets
         }
-        all_sub_folders = [folder.get('name') for folder in contents.get('folders')]
-        if total_images <= 1:
-            data = {
-                'folders': all_sub_folders,
-                'delivery_link': order.get('delivery_link')
-            }
-            if all_sub_folders:
+        TOTAL_IMG_PER_ORDER[order_id] = data
+
+        if not total_images:
+            if not sub_folders:
                 TO_DEBUG_LINKS[order_id] = data
-            else:
-                TO_DEBUG_ZERO[order_id] = data
-            logger.info(order_id)
-            logger.info(order.get('delivery_link'))
-            logger.info(all_sub_folders)
+
+            TO_DEBUG_ZERO[order_id] = data
+            logger.debug(data)
 
     c = KinesisConsumer(GDRIVE_DELIVERY_STREAM)
     c.run(callback)
 
     TOTAL_IMG = sum([value.get('total_images') for value in TOTAL_IMG_PER_ORDER.values()])
     logger.info(f'Total of images found: {TOTAL_IMG}')
+
+    fieldnames = ['briefy_id', 'number_required_assets', 'total_images', 'delivery_link']
+    with open('/tmp/orders-image-inventory.csv', 'w') as fout:
+        writer = csv.DictWriter(fout, fieldnames)
+        writer.writeheader()
+        for key, value in TOTAL_IMG_PER_ORDER.items():
+            writer.writerow(value)
+
+    with open('/tmp/orders-inventory-zero-images.csv', 'w') as fout:
+        writer = csv.DictWriter(fout, fieldnames)
+        writer.writeheader()
+        for key, value in TO_DEBUG_ZERO.items():
+            writer.writerow(value)
