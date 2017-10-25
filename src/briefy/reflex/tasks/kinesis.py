@@ -1,14 +1,12 @@
 """Communication with kinesis service."""
 from briefy.reflex import logger
 from briefy.reflex.celery import app
+from briefy.reflex.config import GDRIVE_DELIVERY_STREAM
 from briefy.reflex.tasks import ReflexTask
 
 import boto3
 import csv
 import json
-
-
-GDRIVE_DELIVERY_STREAM = 'gdrive_delivery_contents_live'
 
 
 @app.task(base=ReflexTask)

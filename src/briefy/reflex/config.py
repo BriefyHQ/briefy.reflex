@@ -29,3 +29,6 @@ AWS_ASSETS_SOURCE = config('AWS_ASSETS_SOURCE', default='source/assets')
 # celery
 CELERY_CONCURRENCY = config('CELERY_CONCURRENCY', default=2)
 CELERY_LOG_LEVEL = config('CELERY_LOG_LEVEL', default='INFO')
+
+# kinesis
+GDRIVE_DELIVERY_STREAM = config('GDRIVE_DELIVERY_STREAM', default='gdrive_delivery_contents')
