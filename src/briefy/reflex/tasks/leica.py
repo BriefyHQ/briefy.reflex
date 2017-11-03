@@ -77,10 +77,25 @@ def orders_from_csv(csv_uri: str) -> t.Sequence[dict]:
 
 
 @app.task(base=ReflexTask)
-def get_delivery_contents(order):
-    """Get order delivery folder contents."""
+def get_assets_contents(order):
+    """Get order submissions, archive and delivery folder contents."""
     delivery_link = order.get('delivery').get('gdrive')
-    return order, folder_contents(delivery_link, extract_id=True)
+    archive_link = order.get('delivery').get('archive')
+    submission_links = [
+        assignment.get('submission_path') for assignment in order.get('assignments')
+        if assignment.get('submission_path')
+    ]
+    delivery_contents = folder_contents(delivery_link, extract_id=True) if delivery_link else {}
+    archive_contents = folder_contents(archive_link, extract_id=True) if archive_link else {}
+    submissions_contents = [
+        folder_contents(link, extract_id=True) for link in submission_links
+    ]
+    contents = {
+        'delivery': delivery_contents,
+        'archive': archive_contents,
+        'submissions': submissions_contents
+    }
+    return order, contents
 
 
 @app.task(bind=True, base=ReflexTask)
@@ -90,7 +105,7 @@ def read_all_delivery_contents(self, csv_uri: str):
     task_list = [
         chain(
             get_order.s(order.get('uid')),
-            get_delivery_contents.s(),
+            get_assets_contents.s(),
             put_gdrive_record.s(),
         )
         for order in orders if order.get('delivery_link')

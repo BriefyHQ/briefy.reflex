@@ -107,3 +107,8 @@ dist: clean ## builds source and wheel package
 
 install: clean ## install the package to the active Python's site-packages
 	python setup.py install
+
+clean_redis:
+	docker stop redis
+	docker rm redis
+	docker run -d -p 127.0.0.1:6379:6379 --name redis redis
