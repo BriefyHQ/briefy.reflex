@@ -22,4 +22,4 @@ History
     * Added to gdrive a function to build a group task to move all files from one folder to another (rudaporto).
     * Update task to load all data to kinesis to also include a full order payload (rudaporto).
     * Update briefy.common and briefy.gdrive versions to latest stable (rudaporto).
-
+    * Include archive and submission folder in the task to get assets contents from gdrive (rudaporto).
