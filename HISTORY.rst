@@ -20,4 +20,6 @@ History
     * Added initial consumer to read data from kinesis (rudaporto).
     * Added to gdrive a new task to move a file to a new folder (rudaporto).
     * Added to gdrive a function to build a group task to move all files from one folder to another (rudaporto).
+    * Update task to load all data to kinesis to also include a full order payload (rudaporto).
+    * Update briefy.common and briefy.gdrive versions to latest stable (rudaporto).
 

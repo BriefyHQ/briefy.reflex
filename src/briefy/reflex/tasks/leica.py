@@ -15,25 +15,26 @@ import requests
 import typing as t
 
 
-@app.task(bind=True, base=ReflexTask)
-def query_orders(self, project_id: str, states: list, page: int=1) -> t.Sequence[dict]:
+@app.task(base=ReflexTask)
+def query_orders(project_id: str='', states: list=None, page: int=1) -> t.Sequence[dict]:
     """Query orders from leica endpoint.
 
-    :param self: reference to the task class instance
     :param project_id: Project ID in the Leica database
     :param states: list of states to filter orders
     :param page: page to be returned
     :return: list of orders returned from listing payload
     """
+    states = states or []
     factory = getUtility(IRemoteRestEndpoint)
     remote = factory(config.LEICA_BASE, 'orders', 'Orders')
     params = {
         'in_state': ','.join(states),
-        'project_id': project_id,
         'current_type': 'order',
         '_page': page
     }
-    result = remote.query(params, items_per_page=100)
+    if project_id:
+        params['project_id'] = project_id
+    result = remote.query(params, items_per_page=5000)
     pagination = result['pagination']
     data = result['data']
     return data, pagination
@@ -55,7 +56,7 @@ def get_order(self, order_id: str) -> dict:
 def get_filters():
     """Get orders filter."""
     return {
-        'project_id': '6f842680-749e-4898-582d-27b240c93c34',
+        'project_id': '1dafb433-9431-4295-a349-92c4ad61c59e',
         'states': ['accepted', ],
     }
 
@@ -80,10 +81,11 @@ def read_all_delivery_contents(self, csv_uri: str):
     """Read all content from the gdrive delivery folder and store in aws kinesis."""
     orders = orders_from_csv(csv_uri)
     task_list = [
-        chain(
+        chain(group([
             folder_contents.s(order.get('delivery_link'), extract_id=True),
-            put_gdrive_record.s(order)
-        ) for order in orders if order.get('delivery_link')
+            get_order.s(order.get('uid'))
+        ]), put_gdrive_record.s())
+        for order in orders if order.get('delivery_link')
     ]
     task_group = group(task_list)
     return task_group()
@@ -94,4 +96,4 @@ def run():
     kwargs = get_filters()
     data, pagination = query_orders.delay(**kwargs).get()
     group_task = group([get_order.s(order.get('id')) for order in data])
-    return group_task().join()
+    return group_task()

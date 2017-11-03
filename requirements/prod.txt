@@ -1,4 +1,4 @@
--e git+git@github.com:BriefyHQ/briefy.common.git@2.1.4#egg=briefy.common[db]
--e git+git@github.com:BriefyHQ/briefy.gdrive.git@1.0.3#egg=briefy.gdrive
+-e git+git@github.com:BriefyHQ/briefy.common.git@2.1.5#egg=briefy.common[db]
+-e git+git@github.com:BriefyHQ/briefy.gdrive.git@1.0.5#egg=briefy.gdrive
 -e git+git@github.com:BriefyHQ/octopus.lens.git@0.1.3#egg=octopus.lens
 -e .

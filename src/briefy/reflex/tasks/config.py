@@ -17,6 +17,7 @@ imports = (
     'briefy.reflex.tasks.alexandria',
     'briefy.reflex.tasks.leica',
     'briefy.reflex.tasks.gdrive',
+    'briefy.reflex.tasks.kinesis',
     'briefy.reflex.tasks.s3'
 )
 

@@ -10,23 +10,22 @@ import json
 
 
 @app.task(base=ReflexTask)
-def put_gdrive_record(contents: dict, order: dict, stream: str=GDRIVE_DELIVERY_STREAM) -> bool:
+def put_gdrive_record(result: tuple, stream: str=GDRIVE_DELIVERY_STREAM) -> bool:
     """Put gdrive folder contents and orders data in a kinesis stream.
 
-    :param contents: gdrive folder contents payload
-    :param order: order payload
+    :param result: data tuple
     :param stream: kinesis stream name
     :return: True if success and False if failed
     """
+    contents, order = result
     data = {
-        'order': order,
         'contents': contents,
+        'order': order,
     }
-
     client = boto3.client('kinesis')
     response = client.put_record(
         Data=json.dumps(data),
-        PartitionKey=order.get('uid'),
+        PartitionKey=order.get('id'),
         StreamName=stream
     )
     success = response['ResponseMetadata']['HTTPStatusCode'] == 200
@@ -138,7 +137,7 @@ class KinesisConsumer:
 
 if __name__ == '__main__':
     # IMPORTANT: to load the data into kinesis
-    # uri = 'https://s3.eu-central-1.amazonaws.com/ms-ophelie-live/reports/leica/finance/20171023/20171023003100-orders-all.csv'  # noQA
+    # uri = https://s3.eu-central-1.amazonaws.com/ms-ophelie-live/reports/leica/finance/20171025/20171025003100-orders-all.csv  # noQA
     # from briefy.reflex.tasks.leica import read_all_delivery_contents
     # read_all_delivery_contents(uri)
 
@@ -164,13 +163,18 @@ if __name__ == '__main__':
         else:
             sub_folders = contents.get('folders')
 
+        if order_id == '1710-4MG-IUZ':
+            import pdb; pdb.set_trace()
+            sub_folders = contents.get('folders')
+
         number_additional_images = sum([len(folder.get('images')) for folder in sub_folders])
         total_images = number_images + number_additional_images
         data = {
             'total_images': total_images,
             'briefy_id': order_id,
             'delivery_link': delivery_link,
-            'number_required_assets': number_required_assets
+            'number_required_assets': number_required_assets,
+            'order_link': f'https://app.briefy.co/orders/{order.get("uid")}'
         }
         TOTAL_IMG_PER_ORDER[order_id] = data
 
@@ -180,11 +184,16 @@ if __name__ == '__main__':
 
             TO_DEBUG_ZERO[order_id] = data
             logger.debug(data)
+        else:
+            logger.info(f'Order id {order_id} processed. Number of images: {total_images}')
+
 
     c = KinesisConsumer(GDRIVE_DELIVERY_STREAM)
     c.run(callback)
 
-    fieldnames = ['briefy_id', 'number_required_assets', 'total_images', 'delivery_link']
+    fieldnames = [
+        'briefy_id', 'number_required_assets', 'total_images', 'delivery_link', 'order_link'
+    ]
     with open('/tmp/orders-image-inventory.csv', 'w') as fout:
         writer = csv.DictWriter(fout, fieldnames)
         writer.writeheader()
