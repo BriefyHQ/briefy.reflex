@@ -76,15 +76,23 @@ def orders_from_csv(csv_uri: str) -> t.Sequence[dict]:
         raise RuntimeError(f'Failure to download file from: {csv_uri}.')
 
 
+@app.task(base=ReflexTask)
+def get_delivery_contents(order):
+    """Get order delivery folder contents."""
+    delivery_link = order.get('delivery').get('gdrive')
+    return order, folder_contents(delivery_link, extract_id=True)
+
+
 @app.task(bind=True, base=ReflexTask)
 def read_all_delivery_contents(self, csv_uri: str):
     """Read all content from the gdrive delivery folder and store in aws kinesis."""
     orders = orders_from_csv(csv_uri)
     task_list = [
-        chain(group([
-            folder_contents.s(order.get('delivery_link'), extract_id=True),
-            get_order.s(order.get('uid'))
-        ]), put_gdrive_record.s())
+        chain(
+            get_order.s(order.get('uid')),
+            get_delivery_contents.s(),
+            put_gdrive_record.s(),
+        )
         for order in orders if order.get('delivery_link')
     ]
     task_group = group(task_list)

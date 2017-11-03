@@ -17,15 +17,16 @@ def put_gdrive_record(result: tuple, stream: str=GDRIVE_DELIVERY_STREAM) -> bool
     :param stream: kinesis stream name
     :return: True if success and False if failed
     """
-    contents, order = result
+    order, contents = result
     data = {
         'contents': contents,
         'order': order,
     }
+    order_id = order.get('id')
     client = boto3.client('kinesis')
     response = client.put_record(
         Data=json.dumps(data),
-        PartitionKey=order.get('id'),
+        PartitionKey=order_id,
         StreamName=stream
     )
     success = response['ResponseMetadata']['HTTPStatusCode'] == 200
