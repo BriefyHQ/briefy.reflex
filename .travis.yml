@@ -7,7 +7,7 @@ branches:
   - develop
 env:
   global:
-  - GOOGLE_APPLICATION_CREDENTIALS=./src/briefy.gdrive/src/briefy/gdrive/private/briefy.gdrive-test-e9a853b36334.json
+  - GOOGLE_APPLICATION_CREDENTIALS=${HOME}/virtualenv/python3.6/src/briefy.gdrive/src/briefy/gdrive/private/briefy.gdrive-test-e9a853b36334.json
   matrix:
   - TOX_ENV=py36
   - TOX_ENV=lint
