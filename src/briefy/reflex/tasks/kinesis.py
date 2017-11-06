@@ -136,6 +136,48 @@ class KinesisConsumer:
         self._iterators[shard_id] = next_shard_iterator
 
 
+def count_assets(contents, filter_folders=False) -> int:
+    """Count the number of assets in the gdrive folder contents result.
+
+    :param contents: briefy.gdrive.api.contents result.
+    :param filter_folders: only count images on folders with specific names.
+    :return: total number of images in the folder and sub folders.
+    """
+    number_images = len(contents.get('images', []),)
+
+    if filter_folders:
+        sub_folders = [
+            folder for folder in contents.get('folders')
+            if folder.get('name').lower().strip() in FOLDER_NAMES
+        ]
+    else:
+        sub_folders = contents.get('folders', [])
+
+    number_additional_images = sum([len(folder.get('images', [])) for folder in sub_folders])
+    total_images = number_images + number_additional_images
+    return total_images
+
+
+def export_csv(data: dict, file_path: str):
+    """Export a map of orders to csv.
+
+    :param data: dict with key, value pairs to be exported, each value should be a dict also
+    :param file_path: complete file path to save the export.
+    :return:
+    """
+    fieldnames = [
+        'briefy_id', 'number_required_assets', 'number_submissions', 'total_submissions',
+        'total_archive', 'total_delivery', 'submission_links', 'archive_link', 'delivery_link',
+        'order_link'
+    ]
+
+    with open(file_path, 'w') as fout:
+        writer = csv.DictWriter(fout, fieldnames)
+        writer.writeheader()
+        for key, value in data.items():
+            writer.writerow(value)
+
+
 if __name__ == '__main__':
     # IMPORTANT: to load the data into kinesis
     # uri = https://s3.eu-central-1.amazonaws.com/ms-ophelie-live/reports/leica/finance/20171025/20171025003100-orders-all.csv  # noQA
@@ -145,67 +187,54 @@ if __name__ == '__main__':
     TOTAL_IMG_PER_ORDER = {}
     TO_DEBUG_LINKS = {}
     TO_DEBUG_ZERO = {}
+    TO_DEBUG_ARCHIVE = {}
     FOLDER_NAMES = [
         'originals', 'original', 'jpeg', 'original sizes',
         'original size', 'original format', 'PRINT'
     ]
 
-    def callback(order, contents, filter_folders=True):
+    def callback(order, contents):
         """Compute the values for each order."""
-        order_id = order.get('briefy_id')
-        delivery_link = order.get('delivery_link')
-        number_images = len(contents.get('images'))
+        order_id = order.get('slug')
+        delivery = order.get('delivery')
         number_required_assets = order.get('number_required_assets')
-        if filter_folders:
-            sub_folders = [
-                folder for folder in contents.get('folders')
-                if folder.get('name').lower().strip() in FOLDER_NAMES
-            ]
-        else:
-            sub_folders = contents.get('folders')
+        total_delivery = count_assets(contents.get('delivery'))
+        submissions = contents.get('submissions')
+        total_submissions = sum(count_assets(submission) for submission in submissions)
+        total_archive = count_assets(contents.get('archive'))
+        submission_links = ','.join(
+            [str(a.get('submission_path', 'null')) for a in order.get('assignments')]
+        )
 
-        if order_id == '1710-4MG-IUZ':
-            import pdb; pdb.set_trace()
-            sub_folders = contents.get('folders')
-
-        number_additional_images = sum([len(folder.get('images')) for folder in sub_folders])
-        total_images = number_images + number_additional_images
         data = {
-            'total_images': total_images,
+            'total_delivery': total_delivery,
+            'total_archive': total_archive,
+            'total_submissions': total_submissions,
+            'number_submissions': len(submissions),
             'briefy_id': order_id,
-            'delivery_link': delivery_link,
+            'delivery_link': delivery.get('gdrive'),
+            'archive_link': delivery.get('archive'),
+            'submission_links': submission_links,
             'number_required_assets': number_required_assets,
-            'order_link': f'https://app.briefy.co/orders/{order.get("uid")}'
+            'order_link': f'https://app.briefy.co/orders/{order.get("id")}'
         }
         TOTAL_IMG_PER_ORDER[order_id] = data
 
-        if not total_images:
-            if not sub_folders:
-                TO_DEBUG_LINKS[order_id] = data
-
+        if not total_delivery:
             TO_DEBUG_ZERO[order_id] = data
             logger.debug(data)
-        else:
-            logger.info(f'Order id {order_id} processed. Number of images: {total_images}')
+        elif total_delivery > total_archive:
+            TO_DEBUG_ARCHIVE[order_id] = data
+
+        logger.info(f'Order id {order_id} processed. Number of images: {total_delivery}')
 
 
     c = KinesisConsumer(GDRIVE_DELIVERY_STREAM)
     c.run(callback)
 
-    fieldnames = [
-        'briefy_id', 'number_required_assets', 'total_images', 'delivery_link', 'order_link'
-    ]
-    with open('/tmp/orders-image-inventory.csv', 'w') as fout:
-        writer = csv.DictWriter(fout, fieldnames)
-        writer.writeheader()
-        for key, value in TOTAL_IMG_PER_ORDER.items():
-            writer.writerow(value)
+    export_csv(TOTAL_IMG_PER_ORDER, '/tmp/orders-image-inventory.csv')
+    export_csv(TO_DEBUG_ARCHIVE, '/tmp/orders-inventory-check-archive.csv')
+    export_csv(TO_DEBUG_ZERO, '/tmp/orders-inventory-zero-images.csv')
 
-    with open('/tmp/orders-inventory-zero-images.csv', 'w') as fout:
-        writer = csv.DictWriter(fout, fieldnames)
-        writer.writeheader()
-        for key, value in TO_DEBUG_ZERO.items():
-            writer.writerow(value)
-
-    TOTAL_IMG = sum([value.get('total_images') for value in TOTAL_IMG_PER_ORDER.values()])
-    logger.info(f'Total of images found: {TOTAL_IMG}')
+    TOTAL_IMG = sum([value.get('total_delivery') for value in TOTAL_IMG_PER_ORDER.values()])
+    logger.info(f'Total of delivery images found: {TOTAL_IMG}')
