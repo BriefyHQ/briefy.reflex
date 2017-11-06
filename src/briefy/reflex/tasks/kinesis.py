@@ -228,7 +228,6 @@ if __name__ == '__main__':
 
         logger.info(f'Order id {order_id} processed. Number of images: {total_delivery}')
 
-
     c = KinesisConsumer(GDRIVE_DELIVERY_STREAM)
     c.run(callback)
 
