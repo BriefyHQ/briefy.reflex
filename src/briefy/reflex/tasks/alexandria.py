@@ -10,6 +10,7 @@ from briefy.reflex.tasks import s3
 from briefy.reflex.tasks import ReflexTask
 from celery import chain
 from celery import group
+from celery.result import GroupResult
 from slugify import slugify
 from zope.component import getUtility
 
@@ -64,7 +65,7 @@ def create_collections(self, order_payload: dict) -> dict:
             result = library_api.get(item.id)
             if not result:
                 payload = {
-                    'slug': item.folder_name,
+                    'slug': slugify(item.name),
                     'id': item.id,
                     'title': item.category,
                     'description': item._get('description', ''),
@@ -196,29 +197,37 @@ def create_assets(collection_payload: dict, order_payload: dict) -> group:
     return group(tasks)
 
 
-def run(order, async=False) -> tuple:
-    """Execute task."""
+@app.task(base=ReflexTask)
+def add_order(order, from_csv=False) -> GroupResult:
+    """Upload one order to alexandria library."""
+    if from_csv:
+        order = leica.get_order(order.get('uid'))
     collection = create_collections(order)
-    result = create_assets(collection, order)()
-    status = AssetsImportResult.success
+    return create_assets(collection, order)()
 
-    if not async:
-        assets = result.join()
-        result = {'assets': assets}
 
+@app.task(base=ReflexTask)
+def run(order) -> tuple:
+    """Upload one order to alexandria library.
+
+    This will run synchronously.
+    """
+    result = add_order(order)
+    assets = result.join()
+    success = result.status == 'SUCCESS'
+    status = AssetsImportResult.success if success else AssetsImportResult.failure
+    result = {'assets': assets}
     return status, result
 
 
-def main():
+def main(uri: str):
     """Create assets for all orders in one project."""
-    orders = leica.run()
-    task_results = []
-    for order in orders:
-        status, result = run(order, async=True)
-        task_results.append(result)
-
-    results = []
-    for task in task_results:
-        results.extend(task.join())
-
-    return results
+    orders = [
+        order for order in leica.orders_from_csv(uri)
+        if order.get('order_status') == 'accepted'
+    ]
+    task_list = [
+        add_order.s(order, from_csv=True) for order in orders
+    ]
+    task_group = group(task_list)
+    return task_group()
