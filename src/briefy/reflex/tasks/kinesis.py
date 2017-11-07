@@ -188,6 +188,7 @@ if __name__ == '__main__':
     TO_DEBUG_LINKS = {}
     TO_DEBUG_ZERO = {}
     TO_DEBUG_ARCHIVE = {}
+    TO_DEBUG_SUBMISSION = {}
     FOLDER_NAMES = [
         'originals', 'original', 'jpeg', 'original sizes',
         'original size', 'original format', 'PRINT'
@@ -225,6 +226,8 @@ if __name__ == '__main__':
             logger.debug(data)
         elif total_delivery > total_archive:
             TO_DEBUG_ARCHIVE[order_id] = data
+        elif total_submissions == 0:
+            TO_DEBUG_SUBMISSION[order_id] = data
 
         logger.info(f'Order id {order_id} processed. Number of images: {total_delivery}')
 
@@ -233,6 +236,7 @@ if __name__ == '__main__':
 
     export_csv(TOTAL_IMG_PER_ORDER, '/tmp/orders-image-inventory.csv')
     export_csv(TO_DEBUG_ARCHIVE, '/tmp/orders-inventory-check-archive.csv')
+    export_csv(TO_DEBUG_SUBMISSION, '/tmp/orders-inventory-check-submission.csv')
     export_csv(TO_DEBUG_ZERO, '/tmp/orders-inventory-zero-images.csv')
 
     TOTAL_IMG = sum([value.get('total_delivery') for value in TOTAL_IMG_PER_ORDER.values()])
