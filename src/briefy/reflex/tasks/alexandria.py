@@ -229,5 +229,5 @@ def main(uri: str):
     number_of_chunks = len(orders) // 10
     from_csv = True
     param_list = [(order, from_csv) for order in orders]
-    tasks = add_order.chunk(param_list, number_of_chunks)
+    tasks = add_order.chunks(param_list, number_of_chunks)
     return tasks.apply_async()
