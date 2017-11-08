@@ -226,8 +226,8 @@ def main(uri: str):
         order for order in leica.orders_from_csv(uri)
         if order.get('order_status') == 'accepted'
     ]
-    task_list = [
-        add_order.s(order, from_csv=True) for order in orders
-    ]
-    task_group = group(task_list)
-    return task_group()
+    number_of_chunks = len(orders) // 10
+    from_csv = True
+    param_list = [(order, from_csv) for order in orders]
+    tasks = add_order.chunk(param_list, number_of_chunks)
+    return tasks.apply_async()
