@@ -169,7 +169,7 @@ def create_assets(collection_payload: dict, order_payload: dict) -> group:
     tasks = []
     if order.requirement_items:
         for item in order.requirement_items:
-            folder_contents = gdrive.folder_contents(item.folder_id)
+            folder_contents = gdrive.folder_contents.delay(item.folder_id).get()
             images = folder_contents.get('images')
             collection_payload = library_api.get(item.id)
             image_tasks = [
@@ -182,7 +182,10 @@ def create_assets(collection_payload: dict, order_payload: dict) -> group:
             tasks.extend(image_tasks)
 
     else:
-        folder_contents = gdrive.folder_contents(order.delivery.gdrive, extract_id=True)
+        folder_contents = gdrive.folder_contents.delay(
+            order.delivery.gdrive,
+            extract_id=True
+        ).get()
         images = folder_contents.get('images')
         image_tasks = [
             chain(
