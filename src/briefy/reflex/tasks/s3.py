@@ -6,7 +6,7 @@ from briefy.reflex import config
 from briefy.reflex import logger
 from briefy.reflex.celery import app
 from briefy.reflex.tasks import ReflexTask
-from briefy.reflex.tasks.gdrive import download_file
+from googleapiclient.errors import HttpError
 
 import boto3
 import os
@@ -32,11 +32,18 @@ def upload_file(destiny: t.Tuple[str, str]) -> str:
 
 
 @app.task(base=ReflexTask)
-def download_and_upload_file(destiny: t.Tuple[str, str], image_payload: dict) -> str:
+def download_and_upload_file(
+    destiny: t.Tuple[str, str],
+    image_payload: dict,
+    autoretry_for=(HttpError,),
+    retry_kwargs={'max_retries': 5}
+) -> str:
     """Download from GDrive and upload file to S3 bucket.
 
     :param destiny: tuple composed of (directory, file_name)
     :param image_payload: google drive file id
+    :param autoretry_for: list of exceptions to retry
+    :param retry_kwargs: parameters to the retry
     :return: return the file_path
     """
     directory, file_name = destiny

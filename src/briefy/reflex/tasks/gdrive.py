@@ -4,6 +4,7 @@ from briefy.gdrive import api
 from briefy.reflex.celery import app
 from briefy.reflex.tasks import ReflexTask
 from celery import group
+from googleapiclient.errors import HttpError
 
 import datetime
 import os
@@ -12,13 +13,22 @@ import typing as t
 
 
 @app.task(bind=True, base=ReflexTask)
-def folder_contents(self, folder_id: str, extract_id=False, permissions=False) -> dict:
+def folder_contents(
+    self,
+    folder_id: str,
+    extract_id=False,
+    permissions=False,
+    autoretry_for=(HttpError,),
+    retry_kwargs={'max_retries': 5}
+) -> dict:
     """Return folder contents from gdrive uri.
 
     :param self: task class instance
     :param folder_id: gdrive folder id
     :param extract_id: if true the folder_id value should be parsed to get the folder_id from url
     :param permissions: if true we will ask to return folder permissions
+    :param autoretry_for: list of exceptions to retry
+    :param retry_kwargs: parameters to the retry
     :return: dict with folder contents payload
     """
     if extract_id:
@@ -27,11 +37,18 @@ def folder_contents(self, folder_id: str, extract_id=False, permissions=False) -
 
 
 @app.task(base=ReflexTask)
-def download_file(destiny: t.Tuple[str, str], image_payload: dict) -> t.Tuple[str, str]:
+def download_file(
+    destiny: t.Tuple[str, str],
+    image_payload: dict,
+    autoretry_for=(HttpError,),
+    retry_kwargs={'max_retries': 5}
+) -> t.Tuple[str, str]:
     """Download file from a gdrive api and save in the file system.
 
     :param destiny: tuple composed of (directory, file_name)
     :param image_payload: google drive file id
+    :param autoretry_for: list of exceptions to retry
+    :param retry_kwargs: parameters to the retry
     :return: destiny file path of downloaded file
     """
     directory, file_name = destiny
@@ -47,13 +64,22 @@ def download_file(destiny: t.Tuple[str, str], image_payload: dict) -> t.Tuple[st
 
 
 @app.task(bind=True, base=ReflexTask)
-def move(self, origin: str, destiny: str, extract_ids=False) -> dict:
+def move(
+    self,
+    origin: str,
+    destiny: str,
+    extract_ids=False,
+    autoretry_for=(HttpError,),
+    retry_kwargs={'max_retries': 5}
+) -> dict:
     """Return folder contents from gdrive uri.
 
     :param origin: origin item gdrive ID
     :param destiny: destiny folder ID
     :param extract_ids: if true the folder_id value should be parsed to get the folder_id from url
-        :return: True if success and False if failure
+    :param autoretry_for: list of exceptions to retry
+    :param retry_kwargs: parameters to the retry
+    :return: True if success and False if failure
     """
     start = datetime.datetime.now()
     if extract_ids:
