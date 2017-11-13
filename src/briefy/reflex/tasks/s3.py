@@ -1,5 +1,7 @@
 """Communication with amazon S3 service."""
 from briefy.common.config import _queue_suffix
+from briefy.common.utils.data import Objectify
+from briefy.gdrive import api
 from briefy.reflex import config
 from briefy.reflex import logger
 from briefy.reflex.celery import app
@@ -37,5 +39,14 @@ def download_and_upload_file(destiny: t.Tuple[str, str], image_payload: dict) ->
     :param image_payload: google drive file id
     :return: return the file_path
     """
-    destiny = download_file(destiny, image_payload)
+    directory, file_name = destiny
+    image = Objectify(image_payload)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    file_path = f'{directory}/{file_name}'
+    with open(file_path, 'wb') as data:
+        data.write(api.get_file(image.id))
+
+    destiny = directory, file_name
     return upload_file(destiny)
