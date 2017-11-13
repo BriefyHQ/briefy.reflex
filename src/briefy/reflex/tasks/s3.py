@@ -4,6 +4,7 @@ from briefy.reflex import config
 from briefy.reflex import logger
 from briefy.reflex.celery import app
 from briefy.reflex.tasks import ReflexTask
+from briefy.reflex.tasks.gdrive import download_file
 
 import boto3
 import os
@@ -26,3 +27,15 @@ def upload_file(destiny: t.Tuple[str, str]) -> str:
     logger.info(f'File name "{file_path}" uploaded to bucket "{bucket}"')
     os.remove(file_path)
     return source_path
+
+
+@app.task(base=ReflexTask)
+def download_and_upload_file(destiny: t.Tuple[str, str], image_payload: dict) -> str:
+    """Download from GDrive and upload file to S3 bucket.
+
+    :param destiny: tuple composed of (directory, file_name)
+    :param image_payload: google drive file id
+    :return: return the file_path
+    """
+    destiny = download_file(destiny, image_payload)
+    return upload_file(destiny)

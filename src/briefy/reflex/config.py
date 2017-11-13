@@ -27,8 +27,13 @@ TMP_PATH = config('TMP_PATH', default='/tmp/assets')
 AWS_ASSETS_SOURCE = config('AWS_ASSETS_SOURCE', default='source/assets')
 
 # celery
-CELERY_CONCURRENCY = config('CELERY_CONCURRENCY', default=2)
+CELERY_CONCURRENCY_DEFAULT = config('CELERY_CONCURRENCY_DEFAULT', default=2)
+CELERY_CONCURRENCY_GDRIVE = config('CELERY_CONCURRENCY_GDRIVE', default=2)
+CELERY_CONCURRENCY_S3 = config('CELERY_CONCURRENCY_S3', default=2)
 CELERY_LOG_LEVEL = config('CELERY_LOG_LEVEL', default='INFO')
+CELERY_DEFAULT_QUEUE = config('CELERY_DEFAULT_QUEUE', default='briefy_reflex')
+CELERY_DEFAULT_QUEUE_DRIVE = config('CELERY_DEFAULT_QUEUE_DRIVE', default='briefy_reflex_gdrive')
+CELERY_DEFAULT_QUEUE_S3 = config('CELERY_DEFAULT_QUEUE_S3', default='briefy_reflex_s3')
 
 # kinesis
 GDRIVE_DELIVERY_STREAM = config('GDRIVE_DELIVERY_STREAM', default='gdrive_delivery_contents')
