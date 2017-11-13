@@ -19,6 +19,7 @@ def folder_contents(
     permissions=False,
     autoretry_for=(HttpError,),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
+    retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,
 ) -> dict:
     """Return folder contents from gdrive uri.
@@ -42,6 +43,7 @@ def download_file(
     image_payload: dict,
     autoretry_for=(HttpError,),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
+    retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,
 ) -> t.Tuple[str, str]:
     """Download file from a gdrive api and save in the file system.
@@ -72,6 +74,7 @@ def move(
     extract_ids=False,
     autoretry_for=(HttpError,),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
+    retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,
 ) -> dict:
     """Return folder contents from gdrive uri.
