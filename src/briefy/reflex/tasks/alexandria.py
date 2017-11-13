@@ -187,8 +187,7 @@ def create_assets(collection_payload: dict, order_payload: dict) -> group:
         image_tasks = [
             chain(
                 add_or_update_asset.s(image, collection_payload),
-                gdrive.download_file.s(image),
-                s3.upload_file.s()
+                s3.download_and_upload_file.s(image),
             ) for image in images
         ]
         tasks.extend(image_tasks)
