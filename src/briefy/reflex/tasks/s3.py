@@ -35,7 +35,7 @@ def upload_file(destiny: t.Tuple[str, str]) -> str:
 def download_and_upload_file(
     destiny: t.Tuple[str, str],
     image_payload: dict,
-    autoretry_for=(HttpError,),
+    autoretry_for=(HttpError, FileNotFoundError),
     retry_kwargs={'max_retries': 5}
 ) -> str:
     """Download from GDrive and upload file to S3 bucket.
