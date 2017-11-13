@@ -47,7 +47,7 @@ def create_collections(self, order_payload: dict) -> dict:
         result = library_api.get(item.id)
         if not result:
             payload = {
-                'slug': slugify(item.title),
+                'slug': item.slug,
                 'id': item.id,
                 'title': item.title,
                 'description': item.description,
@@ -226,6 +226,8 @@ def main(uri: str):
         order for order in leica.orders_from_csv(uri)
         if order.get('order_status') == 'accepted'
     ]
-    task_list = [add_order.s(order, from_csv=True) for order in orders]
-    task_group = group(task_list)
-    return task_group()
+    number_of_orders = len(orders)
+    orders_per_chunk = 20
+    number_of_chunks = number_of_orders // orders_per_chunk
+    param_list = [(order, True) for order in orders]
+    return add_order.chunks(param_list, number_of_chunks).apply_async()
