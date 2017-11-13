@@ -35,6 +35,7 @@ CELERY_DEFAULT_QUEUE = config('CELERY_DEFAULT_QUEUE', default='briefy_reflex')
 CELERY_DEFAULT_QUEUE_DRIVE = config('CELERY_DEFAULT_QUEUE_DRIVE', default='briefy_reflex_gdrive')
 CELERY_DEFAULT_QUEUE_S3 = config('CELERY_DEFAULT_QUEUE_S3', default='briefy_reflex_s3')
 TASK_MAX_RETRY = config('TASK_MAX_RETRY', cast=int, default='10')
+GDRIVE_RATE_LIMIT = config('GDRIVE_RATE_LIMIT', default='10/s')
 
 # kinesis
 GDRIVE_DELIVERY_STREAM = config('GDRIVE_DELIVERY_STREAM', default='gdrive_delivery_contents')

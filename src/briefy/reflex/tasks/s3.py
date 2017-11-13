@@ -40,7 +40,8 @@ def download_and_upload_file(
     destiny: t.Tuple[str, str],
     image_payload: dict,
     autoretry_for=(HttpError, FileNotFoundError),
-    retry_kwargs={'max_retries': config.TASK_MAX_RETRY}
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
+    rate_limit=config.GDRIVE_RATE_LIMIT,
 ) -> str:
     """Download from GDrive and upload file to S3 bucket.
 

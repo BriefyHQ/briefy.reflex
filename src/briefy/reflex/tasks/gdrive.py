@@ -7,9 +7,7 @@ from briefy.reflex.tasks import ReflexTask
 from celery import group
 from googleapiclient.errors import HttpError
 
-import datetime
 import os
-import time
 import typing as t
 
 
@@ -20,7 +18,8 @@ def folder_contents(
     extract_id=False,
     permissions=False,
     autoretry_for=(HttpError,),
-    retry_kwargs={'max_retries': config.TASK_MAX_RETRY}
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
+    rate_limit=config.GDRIVE_RATE_LIMIT,
 ) -> dict:
     """Return folder contents from gdrive uri.
 
@@ -42,7 +41,8 @@ def download_file(
     destiny: t.Tuple[str, str],
     image_payload: dict,
     autoretry_for=(HttpError,),
-    retry_kwargs={'max_retries': config.TASK_MAX_RETRY}
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
+    rate_limit=config.GDRIVE_RATE_LIMIT,
 ) -> t.Tuple[str, str]:
     """Download file from a gdrive api and save in the file system.
 
@@ -71,7 +71,8 @@ def move(
     destiny: str,
     extract_ids=False,
     autoretry_for=(HttpError,),
-    retry_kwargs={'max_retries': config.TASK_MAX_RETRY}
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
+    rate_limit=config.GDRIVE_RATE_LIMIT,
 ) -> dict:
     """Return folder contents from gdrive uri.
 
@@ -82,17 +83,10 @@ def move(
     :param retry_kwargs: parameters to the retry
     :return: True if success and False if failure
     """
-    start = datetime.datetime.now()
     if extract_ids:
         origin = api.get_folder_id_from_url(origin)
         destiny = api.get_folder_id_from_url(destiny)
-    response = api.move(origin, destiny)
-    end = datetime.datetime.now()
-    delta = (end - start).microseconds / 1000000.0
-    if delta < 0.1:
-        wait = 0.1 - delta
-        time.sleep(wait)
-    return response
+    return api.move(origin, destiny)
 
 
 def move_all_files(origin_folder: str, destiny_folder: str):
