@@ -1,6 +1,7 @@
 """Tasks to query data from google drive."""
 from briefy.common.utils.data import Objectify
 from briefy.gdrive import api
+from briefy.reflex import config
 from briefy.reflex.celery import app
 from briefy.reflex.tasks import ReflexTask
 from celery import group
@@ -19,7 +20,7 @@ def folder_contents(
     extract_id=False,
     permissions=False,
     autoretry_for=(HttpError,),
-    retry_kwargs={'max_retries': 5}
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY}
 ) -> dict:
     """Return folder contents from gdrive uri.
 
@@ -41,7 +42,7 @@ def download_file(
     destiny: t.Tuple[str, str],
     image_payload: dict,
     autoretry_for=(HttpError,),
-    retry_kwargs={'max_retries': 5}
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY}
 ) -> t.Tuple[str, str]:
     """Download file from a gdrive api and save in the file system.
 
@@ -70,7 +71,7 @@ def move(
     destiny: str,
     extract_ids=False,
     autoretry_for=(HttpError,),
-    retry_kwargs={'max_retries': 5}
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY}
 ) -> dict:
     """Return folder contents from gdrive uri.
 

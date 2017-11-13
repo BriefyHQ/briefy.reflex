@@ -13,6 +13,10 @@ import os
 import typing as t
 
 
+# TODO: crete a function to count assets
+# aws s3api list-objects --bucket images-dev-briefy --prefix "source/assets/"
+# --output json --query "[length(Contents[])]"
+
 @app.task(base=ReflexTask)
 def upload_file(destiny: t.Tuple[str, str]) -> str:
     """Upload file to S3 bucket.
@@ -36,7 +40,7 @@ def download_and_upload_file(
     destiny: t.Tuple[str, str],
     image_payload: dict,
     autoretry_for=(HttpError, FileNotFoundError),
-    retry_kwargs={'max_retries': 5}
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY}
 ) -> str:
     """Download from GDrive and upload file to S3 bucket.
 
