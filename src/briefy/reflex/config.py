@@ -41,6 +41,4 @@ GDRIVE_RATE_LIMIT = config('GDRIVE_RATE_LIMIT', default='10/s')
 GDRIVE_DELIVERY_STREAM = config('GDRIVE_DELIVERY_STREAM', default='gdrive_delivery_contents')
 
 # flower monitor config
-FLOWER_ADDRESS = config('ADDRESS', default='0.0.0.0')
-FLOWER_PORT = config('PORT', cast=int, default='8000')
 FLOWER_COOKIE_SECRET = config('COOKIE_SECRET', default='304f805a-532f-41f0-9fd1-e38fa340e77c')
