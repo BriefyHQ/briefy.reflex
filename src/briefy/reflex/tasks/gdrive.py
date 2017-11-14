@@ -11,25 +11,19 @@ import os
 import typing as t
 
 
-@app.task(bind=True, base=ReflexTask)
-def folder_contents(
-    self,
-    folder_id: str,
-    extract_id=False,
-    permissions=False,
+@app.task(
+    base=ReflexTask,
     autoretry_for=(HttpError,),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
     retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,
-) -> dict:
+)
+def folder_contents(folder_id: str, extract_id=False, permissions=False) -> dict:
     """Return folder contents from gdrive uri.
 
-    :param self: task class instance
     :param folder_id: gdrive folder id
     :param extract_id: if true the folder_id value should be parsed to get the folder_id from url
     :param permissions: if true we will ask to return folder permissions
-    :param autoretry_for: list of exceptions to retry
-    :param retry_kwargs: parameters to the retry
     :return: dict with folder contents payload
     """
     if extract_id:
@@ -37,21 +31,18 @@ def folder_contents(
     return api.contents(folder_id, permissions=permissions)
 
 
-@app.task(base=ReflexTask)
-def download_file(
-    destiny: t.Tuple[str, str],
-    image_payload: dict,
+@app.task(
+    base=ReflexTask,
     autoretry_for=(HttpError,),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
     retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,
-) -> t.Tuple[str, str]:
+)
+def download_file(destiny: t.Tuple[str, str], image_payload: dict) -> t.Tuple[str, str]:
     """Download file from a gdrive api and save in the file system.
 
     :param destiny: tuple composed of (directory, file_name)
     :param image_payload: google drive file id
-    :param autoretry_for: list of exceptions to retry
-    :param retry_kwargs: parameters to the retry
     :return: destiny file path of downloaded file
     """
     directory, file_name = destiny
@@ -66,24 +57,19 @@ def download_file(
     return directory, file_name
 
 
-@app.task(bind=True, base=ReflexTask)
-def move(
-    self,
-    origin: str,
-    destiny: str,
-    extract_ids=False,
+@app.task(
+    base=ReflexTask,
     autoretry_for=(HttpError,),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
     retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,
-) -> dict:
+)
+def move(origin: str, destiny: str, extract_ids=False) -> dict:
     """Return folder contents from gdrive uri.
 
     :param origin: origin item gdrive ID
     :param destiny: destiny folder ID
     :param extract_ids: if true the folder_id value should be parsed to get the folder_id from url
-    :param autoretry_for: list of exceptions to retry
-    :param retry_kwargs: parameters to the retry
     :return: True if success and False if failure
     """
     if extract_ids:

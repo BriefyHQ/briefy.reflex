@@ -36,21 +36,18 @@ def upload_file(destiny: t.Tuple[str, str]) -> str:
     return source_path
 
 
-@app.task(base=ReflexTask)
-def download_and_upload_file(
-    destiny: t.Tuple[str, str],
-    image_payload: dict,
+@app.task(
+    base=ReflexTask,
     autoretry_for=(HttpError, FileNotFoundError),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
     retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,
-) -> str:
+)
+def download_and_upload_file(destiny: t.Tuple[str, str], image_payload: dict) -> str:
     """Download from GDrive and upload file to S3 bucket.
 
     :param destiny: tuple composed of (directory, file_name)
     :param image_payload: google drive file id
-    :param autoretry_for: list of exceptions to retry
-    :param retry_kwargs: parameters to the retry
     :return: return the file_path
     """
     directory, file_name = destiny
