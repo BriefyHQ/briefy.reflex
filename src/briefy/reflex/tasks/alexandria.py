@@ -228,7 +228,7 @@ def main(uri: str):
         if order.get('order_status') == 'accepted'
     ]
     number_of_orders = len(orders)
-    orders_per_chunk = 20
+    orders_per_chunk = 10
     number_of_chunks = number_of_orders // orders_per_chunk
     param_list = [(order, True) for order in orders]
     return add_order.chunks(param_list, number_of_chunks).apply_async()
