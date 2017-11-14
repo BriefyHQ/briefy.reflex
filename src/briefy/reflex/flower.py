@@ -7,3 +7,4 @@ from briefy.reflex.config import FLOWER_PORT
 address = FLOWER_ADDRESS
 port = FLOWER_PORT
 cookie_secret = FLOWER_COOKIE_SECRET
+logging = 'DEBUG'
