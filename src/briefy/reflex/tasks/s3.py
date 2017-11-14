@@ -10,7 +10,6 @@ from googleapiclient.errors import HttpError
 
 import boto3
 import os
-import transaction
 import typing as t
 
 
@@ -56,9 +55,8 @@ def download_and_upload_file(destiny: t.Tuple[str, str], image_payload: dict) ->
         os.makedirs(directory)
 
     file_path = f'{directory}/{file_name}'
-    with transaction.manager:
-        with open(file_path, 'wb') as data:
-            data.write(api.get_file(image.id))
+    with open(file_path, 'wb') as data:
+        data.write(api.get_file(image.id))
 
     destiny = directory, file_name
     result = upload_file(destiny)
