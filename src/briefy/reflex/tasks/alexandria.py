@@ -133,10 +133,12 @@ def add_or_update_asset(image_payload: dict, collection_payload: dict) -> t.Tupl
         data = library_api.post(payload)
     else:
         data = data[0]
-        data = library_api.get(data.get('id'))
-        if collection.id not in data.get('collections'):
-            data.get('collections').append(collection.id)
-            data = library_api.put(data)
+        asset_id = data.get('id')
+        data = library_api.get(asset_id)
+        asset_collections = data.get('collections')
+        if collection.id not in asset_collections:
+            asset_collections.append(collection.id)
+            data = library_api.put(asset_id, data)
 
         asset_id = data.get('id')
         file_name = f'{asset_id}.{extension}'
