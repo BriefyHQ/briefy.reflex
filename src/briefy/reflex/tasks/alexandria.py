@@ -12,8 +12,11 @@ from briefy.reflex.tasks.kinesis import FOLDER_NAMES
 from celery import chain
 from celery import group
 from celery.result import GroupResult
+from requests.exceptions import ConnectionError
 from slugify import slugify
+from urllib3.exceptions import ProtocolError
 from zope.component import getUtility
+
 
 import enum
 import typing as t
@@ -27,7 +30,13 @@ class AssetsImportResult(enum.Enum):
     failure = 'failure'
 
 
-@app.task(bind=True, base=ReflexTask)
+@app.task(
+    bind=True,
+    base=ReflexTask,
+    autoretry_for=(ConnectionError, ProtocolError),
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
+    retry_backoff=True,
+)
 def create_collections(self, order_payload: dict) -> dict:
     """Create all collections in Alexandria if the do not exists.
 
@@ -86,7 +95,12 @@ def create_collections(self, order_payload: dict) -> dict:
     return library_api.get(order.id)
 
 
-@app.task(base=ReflexTask)
+@app.task(
+    base=ReflexTask,
+    autoretry_for=(ConnectionError, ProtocolError),
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
+    retry_backoff=True,
+)
 def add_or_update_asset(image_payload: dict, collection_payload: dict) -> t.Tuple[str, str]:
     """Add one assets in Alexandria if it do not exists.
 
@@ -211,7 +225,12 @@ def create_assets(collection_payload: dict, order_payload: dict) -> group:
     return group(tasks)
 
 
-@app.task(base=ReflexTask)
+@app.task(
+    base=ReflexTask,
+    autoretry_for=(ConnectionError, ProtocolError),
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
+    retry_backoff=True,
+)
 def add_order(order: dict, from_csv: bool=False) -> GroupResult:
     """Upload one order to alexandria library.
 
