@@ -62,11 +62,12 @@ def create_collections(self, order_payload: dict) -> dict:
         parent_id = result.get('id')
 
     if order.requirement_items:
-        for item in order.requirement_items:
+        for i, item in enumerate(order.requirement_items):
             result = library_api.get(item.id)
             if not result:
+                category_name = item._get('name', f'ItemName-{i}')
                 payload = {
-                    'slug': slugify(item.name),
+                    'slug': slugify(category_name),
                     'id': item.id,
                     'title': item.category,
                     'description': item._get('description', ''),
