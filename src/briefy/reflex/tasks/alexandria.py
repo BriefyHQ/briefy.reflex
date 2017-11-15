@@ -211,8 +211,13 @@ def create_assets(collection_payload: dict, order_payload: dict) -> group:
 
 
 @app.task(base=ReflexTask)
-def add_order(order, from_csv=False) -> GroupResult:
-    """Upload one order to alexandria library."""
+def add_order(order: dict, from_csv: bool=False) -> GroupResult:
+    """Upload one order to alexandria library.
+
+    :param order: order payload
+    :param from_csv: means that the order payload is from the csv report and we need to query leica
+    :return: async group result fro m celery group execution
+    """
     if from_csv:
         order = leica.get_order(order.get('uid'))
     collection = create_collections(order)
@@ -233,14 +238,18 @@ def run(order) -> tuple:
     return status, result
 
 
-def main(uri: str):
-    """Create assets for all orders in one project."""
+def main(uri: str, chunk_size=10) -> list:
+    """Create assets for all orders in one project.
+
+    :param uri: link to all orders csv file
+    :param chunk_size: number of tasks per chunk of execution
+    :return: list of celery async result instances, the number depends of the chunk size
+    """
     orders = [
         order for order in leica.orders_from_csv(uri)
-        if order.get('order_status') == 'accepted'
+        if order.get('order_status') == 'accepted' and order.get('delivery_link')
     ]
     number_of_orders = len(orders)
-    orders_per_chunk = 10
-    number_of_chunks = number_of_orders // orders_per_chunk
+    number_of_chunks = number_of_orders // chunk_size
     param_list = [(order, True) for order in orders]
     return add_order.chunks(param_list, number_of_chunks).apply_async()
