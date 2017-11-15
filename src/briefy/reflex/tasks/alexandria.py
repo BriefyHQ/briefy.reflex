@@ -8,6 +8,7 @@ from briefy.reflex.tasks import leica
 from briefy.reflex.tasks import gdrive
 from briefy.reflex.tasks import s3
 from briefy.reflex.tasks import ReflexTask
+from briefy.reflex.tasks.kinesis import FOLDER_NAMES
 from celery import chain
 from celery import group
 from celery.result import GroupResult
@@ -187,6 +188,15 @@ def create_assets(collection_payload: dict, order_payload: dict) -> group:
             extract_id=True
         ).get()
         images = folder_contents.get('images')
+        sub_folders = [
+            folder for folder in folder_contents.get('folders')
+            if folder.get('name').lower().strip() in FOLDER_NAMES
+        ]
+
+        # make sure que get images also from sub folders
+        for folder in sub_folders:
+            images.extend(folder.get('images'))
+
         image_tasks = [
             chain(
                 add_or_update_asset.s(image, collection_payload),

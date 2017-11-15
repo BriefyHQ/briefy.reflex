@@ -9,6 +9,11 @@ import csv
 import json
 
 
+FOLDER_NAMES = [
+    'originals', 'original', 'jpeg', 'original sizes', 'original size', 'original format', 'PRINT'
+]
+
+
 @app.task(base=ReflexTask)
 def put_gdrive_record(result: tuple, stream: str=GDRIVE_DELIVERY_STREAM) -> bool:
     """Put gdrive folder contents and orders data in a kinesis stream.
@@ -189,10 +194,6 @@ if __name__ == '__main__':
     TO_DEBUG_ZERO = {}
     TO_DEBUG_ARCHIVE = {}
     TO_DEBUG_SUBMISSION = {}
-    FOLDER_NAMES = [
-        'originals', 'original', 'jpeg', 'original sizes',
-        'original size', 'original format', 'PRINT'
-    ]
 
     def callback(order, contents):
         """Compute the values for each order."""
