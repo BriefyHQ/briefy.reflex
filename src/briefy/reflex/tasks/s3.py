@@ -7,6 +7,7 @@ from briefy.reflex import logger
 from briefy.reflex.celery import app
 from briefy.reflex.tasks import ReflexTask
 from googleapiclient.errors import HttpError
+from ssl import SSLError
 
 import boto3
 import os
@@ -37,7 +38,7 @@ def upload_file(destiny: t.Tuple[str, str]) -> str:
 
 @app.task(
     base=ReflexTask,
-    autoretry_for=(HttpError, FileNotFoundError),
+    autoretry_for=(HttpError, FileNotFoundError, SSLError),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
     retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,

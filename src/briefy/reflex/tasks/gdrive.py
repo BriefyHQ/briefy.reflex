@@ -6,6 +6,7 @@ from briefy.reflex.celery import app
 from briefy.reflex.tasks import ReflexTask
 from celery import group
 from googleapiclient.errors import HttpError
+from ssl import SSLError
 
 import os
 import typing as t
@@ -13,7 +14,7 @@ import typing as t
 
 @app.task(
     base=ReflexTask,
-    autoretry_for=(HttpError,),
+    autoretry_for=(HttpError, SSLError),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
     retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,
@@ -33,7 +34,7 @@ def folder_contents(folder_id: str, extract_id=False, permissions=False) -> dict
 
 @app.task(
     base=ReflexTask,
-    autoretry_for=(HttpError,),
+    autoretry_for=(HttpError, SSLError),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
     retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,
@@ -59,7 +60,7 @@ def download_file(destiny: t.Tuple[str, str], image_payload: dict) -> t.Tuple[st
 
 @app.task(
     base=ReflexTask,
-    autoretry_for=(HttpError,),
+    autoretry_for=(HttpError, SSLError),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
     retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,
