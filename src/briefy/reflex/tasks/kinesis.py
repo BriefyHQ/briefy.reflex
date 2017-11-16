@@ -185,7 +185,7 @@ def export_csv(data: dict, file_path: str):
 
 if __name__ == '__main__':
     # IMPORTANT: to load the data into kinesis
-    # uri = https://s3.eu-central-1.amazonaws.com/ms-ophelie-live/reports/leica/finance/20171025/20171025003100-orders-all.csv  # noQA
+    # uri = 'https://s3.eu-central-1.amazonaws.com/ms-ophelie-live/reports/leica/finance/20171115/20171115003100-orders-all.csv'  # noQA
     # from briefy.reflex.tasks.leica import read_all_delivery_contents
     # read_all_delivery_contents(uri)
 
