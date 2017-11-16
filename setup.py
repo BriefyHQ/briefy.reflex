@@ -15,7 +15,7 @@ requires = [
     'briefy.gdrive',
     'celery',
     'flower',
-    'eventlet',
+    'gevent',
     'prettyconf',
     'setuptools',
 ]

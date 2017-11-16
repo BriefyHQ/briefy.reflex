@@ -155,7 +155,6 @@ def add_or_update_asset(image_payload: dict, collection_payload: dict) -> t.Tupl
             asset_collections.append(collection.id)
             data = library_api.put(asset_id, data)
 
-        asset_id = data.get('id')
         file_name = f'{asset_id}.{extension}'
 
     if not data:
