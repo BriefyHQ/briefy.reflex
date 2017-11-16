@@ -14,7 +14,7 @@ import typing as t
 
 @app.task(
     base=ReflexTask,
-    autoretry_for=(HttpError, SSLError),
+    autoretry_for=(HttpError, SSLError, OSError),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
     retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,
@@ -34,7 +34,7 @@ def folder_contents(folder_id: str, extract_id=False, permissions=False) -> dict
 
 @app.task(
     base=ReflexTask,
-    autoretry_for=(HttpError, SSLError),
+    autoretry_for=(HttpError, SSLError, OSError),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
     retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,
@@ -60,7 +60,7 @@ def download_file(destiny: t.Tuple[str, str], image_payload: dict) -> t.Tuple[st
 
 @app.task(
     base=ReflexTask,
-    autoretry_for=(HttpError, SSLError),
+    autoretry_for=(HttpError, SSLError, OSError),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
     retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,

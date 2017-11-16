@@ -39,7 +39,7 @@ def upload_file(destiny: t.Tuple[str, str]) -> str:
 
 @app.task(
     base=ReflexTask,
-    autoretry_for=(HttpError, FileNotFoundError, SSLError, IncompleteRead),
+    autoretry_for=(HttpError, FileNotFoundError, SSLError, IncompleteRead, OSError),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
     retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,
