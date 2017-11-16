@@ -3,6 +3,7 @@ from briefy.reflex import logger
 from briefy.reflex.celery import app
 from briefy.reflex.config import GDRIVE_DELIVERY_STREAM
 from briefy.reflex.tasks import ReflexTask
+from collections import namedtuple
 
 import boto3
 import csv
@@ -141,14 +142,21 @@ class KinesisConsumer:
         self._iterators[shard_id] = next_shard_iterator
 
 
-def count_assets(contents, filter_folders=False) -> int:
+TotalAssets = namedtuple('TotalAssets', ['images', 'videos', 'others'])
+
+
+def count_assets(contents, filter_folders=False) -> TotalAssets:
     """Count the number of assets in the gdrive folder contents result.
 
     :param contents: briefy.gdrive.api.contents result.
     :param filter_folders: only count images on folders with specific names.
     :return: total number of images in the folder and sub folders.
     """
-    number_images = len(contents.get('images', []),)
+    total = TotalAssets(
+        len(contents.get('images', [])),
+        len(contents.get('videos', [])),
+        len(contents.get('other_files', []))
+    )
 
     if filter_folders:
         sub_folders = [
@@ -158,9 +166,10 @@ def count_assets(contents, filter_folders=False) -> int:
     else:
         sub_folders = contents.get('folders', [])
 
-    number_additional_images = sum([len(folder.get('images', [])) for folder in sub_folders])
-    total_images = number_images + number_additional_images
-    return total_images
+    total.images += sum([len(folder.get('images', [])) for folder in sub_folders])
+    total.videos += sum([len(folder.get('videos', [])) for folder in sub_folders])
+    total.others += sum([len(folder.get('other_files', [])) for folder in sub_folders])
+    return total
 
 
 def export_csv(data: dict, file_path: str):
@@ -171,9 +180,11 @@ def export_csv(data: dict, file_path: str):
     :return:
     """
     fieldnames = [
-        'briefy_id', 'number_required_assets', 'number_submissions', 'total_submissions',
-        'total_archive', 'total_delivery', 'submission_links', 'archive_link', 'delivery_link',
-        'order_link'
+        'briefy_id', 'number_required_assets', 'number_submissions', 'total_submissions_images',
+        'total_submissions_videos', 'total_submissions_others', 'total_archive_images',
+        'total_archive_videos', 'total_archive_others', 'total_delivery_images',
+        'total_delivery_videos', 'total_delivery_others', 'submission_links', 'archive_link',
+        'delivery_link', 'order_link'
     ]
 
     with open(file_path, 'w') as fout:
@@ -209,9 +220,15 @@ if __name__ == '__main__':
         )
 
         data = {
-            'total_delivery': total_delivery,
-            'total_archive': total_archive,
-            'total_submissions': total_submissions,
+            'total_delivery_images': total_delivery.images,
+            'total_delivery_videos': total_delivery.videos,
+            'total_delivery_others': total_delivery.others,
+            'total_archive_images': total_archive.images,
+            'total_archive_videos': total_archive.videos,
+            'total_archive_others': total_archive.others,
+            'total_submissions_images': total_submissions.images,
+            'total_submissions_videos': total_submissions.videos,
+            'total_submissions_others': total_submissions.others,
             'number_submissions': len(submissions),
             'briefy_id': order_id,
             'delivery_link': delivery.get('gdrive'),
