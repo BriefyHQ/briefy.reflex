@@ -33,7 +33,7 @@ class AssetsImportResult(enum.Enum):
 @app.task(
     bind=True,
     base=ReflexTask,
-    autoretry_for=(ConnectionError, ProtocolError),
+    autoretry_for=(ConnectionError, ProtocolError, RuntimeError),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
     retry_backoff=True,
 )
@@ -97,7 +97,7 @@ def create_collections(self, order_payload: dict) -> dict:
 
 @app.task(
     base=ReflexTask,
-    autoretry_for=(ConnectionError, ProtocolError),
+    autoretry_for=(ConnectionError, ProtocolError, RuntimeError),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
     retry_backoff=True,
 )
@@ -227,7 +227,7 @@ def create_assets(collection_payload: dict, order_payload: dict) -> group:
 
 @app.task(
     base=ReflexTask,
-    autoretry_for=(ConnectionError, ProtocolError),
+    autoretry_for=(ConnectionError, ProtocolError, RuntimeError),
     retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
     retry_backoff=True,
 )
