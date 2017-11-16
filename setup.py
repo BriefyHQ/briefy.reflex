@@ -14,8 +14,8 @@ requires = [
     'briefy.common[db]',
     'briefy.gdrive',
     'celery',
+    'eventlet',
     'flower',
-    'gevent',
     'prettyconf',
     'setuptools',
 ]
