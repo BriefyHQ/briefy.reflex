@@ -20,6 +20,31 @@ import typing as t
 # aws s3api list-objects --bucket images-dev-briefy --prefix "source/assets/"
 # --output json --query "[length(Contents[])]"
 
+
+@app.task(base=ReflexTask)
+def file_exists(destiny: t.Tuple[str, str]) -> bool:
+    """Check if file exists in S3 bucket.
+
+    :param destiny: tuple composed of (directory, file_name)
+    :return: return True if file exists esle False
+    """
+    directory, file_name = destiny
+    bucket = f'images-{_queue_suffix}-briefy'
+    file_path = os.path.join(directory, file_name)
+    s3 = boto3.resource('s3')
+    result = True
+
+    try:
+        s3.Object(bucket, file_path).load()
+    except botocore.exceptions.ClientError as exc:
+        if exc.response['Error']['Code'] == "404":
+            result = False
+        else:
+            raise exc
+
+    return result
+
+
 @app.task(base=ReflexTask)
 def upload_file(destiny: t.Tuple[str, str]) -> str:
     """Upload file to S3 bucket.
@@ -32,16 +57,8 @@ def upload_file(destiny: t.Tuple[str, str]) -> str:
     bucket = f'images-{_queue_suffix}-briefy'
     file_path = os.path.join(directory, file_name)
     s3 = boto3.resource('s3')
-    try:
-        s3.Object(bucket, file_path).load()
-    except botocore.exceptions.ClientError as exc:
-        if exc.response['Error']['Code'] == "404":
-            s3.meta.client.upload_file(file_path, bucket, source_path)
-            logger.info(f'File name "{file_path}" uploaded to bucket "{bucket}"')
-        else:
-            raise exc
-
-    os.remove(file_path)
+    s3.meta.client.upload_file(file_path, bucket, source_path)
+    logger.info(f'File name "{file_path}" uploaded to bucket "{bucket}"')
     return source_path
 
 
@@ -61,13 +78,16 @@ def download_and_upload_file(destiny: t.Tuple[str, str], image_payload: dict) ->
     """
     directory, file_name = destiny
     image = Objectify(image_payload)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+    if not file_exists(destiny):
+        if not os.path.exists(directory):
+            os.makedirs(directory)
 
-    file_path = f'{directory}/{file_name}'
-    with open(file_path, 'wb') as data:
-        data.write(api.get_file(image.id))
+        file_path = f'{directory}/{file_name}'
+        with open(file_path, 'wb') as data:
+            data.write(api.get_file(image.id))
 
-    destiny = directory, file_name
-    result = upload_file(destiny)
+        result = upload_file(destiny)
+        os.remove(file_path)
+    else:
+        result = f'{config.AWS_ASSETS_SOURCE}/{file_name}'
     return result
