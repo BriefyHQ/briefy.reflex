@@ -11,6 +11,7 @@ from http.client import IncompleteRead
 from ssl import SSLError
 
 import boto3
+import botocore
 import os
 import typing as t
 
@@ -31,8 +32,15 @@ def upload_file(destiny: t.Tuple[str, str]) -> str:
     bucket = f'images-{_queue_suffix}-briefy'
     file_path = os.path.join(directory, file_name)
     s3 = boto3.resource('s3')
-    s3.meta.client.upload_file(file_path, bucket, source_path)
-    logger.info(f'File name "{file_path}" uploaded to bucket "{bucket}"')
+    try:
+        s3.Object(bucket, file_path).load()
+    except botocore.exceptions.ClientError as exc:
+        if exc.response['Error']['Code'] == "404":
+            s3.meta.client.upload_file(file_path, bucket, source_path)
+            logger.info(f'File name "{file_path}" uploaded to bucket "{bucket}"')
+        else:
+            raise exc
+
     os.remove(file_path)
     return source_path
 
