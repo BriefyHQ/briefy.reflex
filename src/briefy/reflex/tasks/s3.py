@@ -37,7 +37,7 @@ def file_exists(destiny: t.Tuple[str, str]) -> bool:
     try:
         s3.Object(bucket, file_path).load()
     except botocore.exceptions.ClientError as exc:
-        if exc.response['Error']['Code'] == "404":
+        if exc.response['Error']['Code'] == '404':
             result = False
         else:
             raise exc
