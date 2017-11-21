@@ -85,10 +85,12 @@ def get_assets_contents(order):
         assignment.get('submission_path') for assignment in order.get('assignments')
         if assignment.get('submission_path')
     ]
-    delivery_contents = folder_contents(delivery_link, extract_id=True) if delivery_link else {}
-    archive_contents = folder_contents(archive_link, extract_id=True) if archive_link else {}
+    delivery_contents = folder_contents(delivery_link, extract_id=True, subfolders=True) \
+        if delivery_link else {}
+    archive_contents = folder_contents(archive_link, extract_id=True, subfolders=True) \
+        if archive_link else {}
     submissions_contents = [
-        folder_contents(link, extract_id=True) for link in submission_links
+        folder_contents(link, extract_id=True, subfolders=True) for link in submission_links
     ]
     contents = {
         'delivery': delivery_contents,

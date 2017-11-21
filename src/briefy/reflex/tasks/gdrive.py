@@ -19,17 +19,18 @@ import typing as t
     retry_backoff=True,
     rate_limit=config.GDRIVE_RATE_LIMIT,
 )
-def folder_contents(folder_id: str, extract_id=False, permissions=False) -> dict:
+def folder_contents(folder_id: str, extract_id=False, permissions=False, subfolders=True) -> dict:
     """Return folder contents from gdrive uri.
 
     :param folder_id: gdrive folder id
     :param extract_id: if true the folder_id value should be parsed to get the folder_id from url
     :param permissions: if true we will ask to return folder permissions
+    :param subfolders: return subfolders
     :return: dict with folder contents payload
     """
     if extract_id:
         folder_id = api.get_folder_id_from_url(folder_id)
-    return api.contents(folder_id, permissions=permissions)
+    return api.contents(folder_id, subfolders=subfolders, permissions=permissions)
 
 
 @app.task(

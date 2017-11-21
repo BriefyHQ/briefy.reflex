@@ -4,10 +4,13 @@ from briefy.reflex.celery import app
 from briefy.reflex.config import GDRIVE_DELIVERY_STREAM
 from briefy.reflex.tasks import ReflexTask
 from collections import namedtuple
+from dateutil import parser
+from datetime import datetime
 
 import boto3
 import csv
 import json
+import pytz
 
 
 FOLDER_NAMES = [
@@ -85,8 +88,16 @@ class KinesisConsumer:
         :return: shard iterator id
         """
         shard_id = shard['ShardId']
-        shard_iterator = self._iterators.get(shard_id)
-        if not shard_iterator:
+        shard_iterator, date = self._iterators.get(shard_id, (None, None))
+        if shard_iterator and date:
+            # validate iterator datetime and
+            date = parser.parse(date)
+            now = datetime.now().astimezone(pytz.utc)
+            date_diff = (now - date).seconds
+            if date_diff > 280:
+                shard_iterator = None
+
+        if not (shard_iterator and date):
             client = self.client
             sequence_number = self.get_sequence(shard)
             response = client.get_shard_iterator(
@@ -95,7 +106,10 @@ class KinesisConsumer:
                 ShardIteratorType='AT_SEQUENCE_NUMBER',
                 StartingSequenceNumber=sequence_number,
             )
+            date = response.get('ResponseMetadata').get('HTTPHeaders').get('date')
             shard_iterator = response['ShardIterator']
+            self._iterators[shard_id] = shard_iterator, date
+
         return shard_iterator
 
     @property
@@ -139,7 +153,8 @@ class KinesisConsumer:
                 self._sequences[shard_id] = item['SequenceNumber']
 
         next_shard_iterator = response['NextShardIterator']
-        self._iterators[shard_id] = next_shard_iterator
+        date = response.get('ResponseMetadata').get('HTTPHeaders').get('date')
+        self._iterators[shard_id] = next_shard_iterator, date
 
 
 TotalAssets = namedtuple('TotalAssets', ['images', 'videos', 'others'])
@@ -152,12 +167,6 @@ def count_assets(contents, filter_folders=False) -> TotalAssets:
     :param filter_folders: only count images on folders with specific names.
     :return: total number of images in the folder and sub folders.
     """
-    total = TotalAssets(
-        len(contents.get('images', [])),
-        len(contents.get('videos', [])),
-        len(contents.get('other_files', []))
-    )
-
     if filter_folders:
         sub_folders = [
             folder for folder in contents.get('folders')
@@ -166,9 +175,21 @@ def count_assets(contents, filter_folders=False) -> TotalAssets:
     else:
         sub_folders = contents.get('folders', [])
 
-    total.images += sum([len(folder.get('images', [])) for folder in sub_folders])
-    total.videos += sum([len(folder.get('videos', [])) for folder in sub_folders])
-    total.others += sum([len(folder.get('other_files', [])) for folder in sub_folders])
+    total = TotalAssets(
+        len(contents.get('images', [])) + sum(
+            [len(folder.get('images', [])) for folder in sub_folders]
+        ),
+        len(contents.get('videos', [])) + sum(
+            [len(folder.get('videos', [])) for folder in sub_folders]
+        ),
+        len(contents.get('other_files', [])) + sum(
+            [len(folder.get('other_files', [])) for folder in sub_folders]
+        )
+    )
+
+    if total.images == 0:
+        import pdb; pdb.set_trace()
+
     return total
 
 
@@ -196,7 +217,7 @@ def export_csv(data: dict, file_path: str):
 
 if __name__ == '__main__':
     # IMPORTANT: to load the data into kinesis
-    # uri = 'https://s3.eu-central-1.amazonaws.com/ms-ophelie-live/reports/leica/finance/20171115/20171115003100-orders-all.csv'  # noQA
+    # uri = 'https://s3.eu-central-1.amazonaws.com/ms-ophelie-dev/reports/leica/finance/20171120/20171120180500-orders-all.csv'  # noQA
     # from briefy.reflex.tasks.leica import read_all_delivery_contents
     # read_all_delivery_contents(uri)
 
@@ -213,7 +234,7 @@ if __name__ == '__main__':
         number_required_assets = order.get('number_required_assets')
         total_delivery = count_assets(contents.get('delivery'))
         submissions = contents.get('submissions')
-        total_submissions = sum(count_assets(submission) for submission in submissions)
+        total_submissions = [count_assets(submission) for submission in submissions]
         total_archive = count_assets(contents.get('archive'))
         submission_links = ','.join(
             [str(a.get('submission_path', 'null')) for a in order.get('assignments')]
@@ -226,9 +247,9 @@ if __name__ == '__main__':
             'total_archive_images': total_archive.images,
             'total_archive_videos': total_archive.videos,
             'total_archive_others': total_archive.others,
-            'total_submissions_images': total_submissions.images,
-            'total_submissions_videos': total_submissions.videos,
-            'total_submissions_others': total_submissions.others,
+            'total_submissions_images': sum([item.images for item in total_submissions]),
+            'total_submissions_videos': sum([item.videos for item in total_submissions]),
+            'total_submissions_others': sum([item.others for item in total_submissions]),
             'number_submissions': len(submissions),
             'briefy_id': order_id,
             'delivery_link': delivery.get('gdrive'),
@@ -239,12 +260,11 @@ if __name__ == '__main__':
         }
         TOTAL_IMG_PER_ORDER[order_id] = data
 
-        if not total_delivery:
+        if not total_delivery.images:
             TO_DEBUG_ZERO[order_id] = data
-            logger.debug(data)
-        elif total_delivery > total_archive:
+        elif total_delivery.images > total_archive.images:
             TO_DEBUG_ARCHIVE[order_id] = data
-        elif total_submissions == 0:
+        elif data['total_submissions_images'] == 0:
             TO_DEBUG_SUBMISSION[order_id] = data
 
         logger.info(f'Order id {order_id} processed. Number of images: {total_delivery}')
@@ -257,5 +277,5 @@ if __name__ == '__main__':
     export_csv(TO_DEBUG_SUBMISSION, '/tmp/orders-inventory-check-submission.csv')
     export_csv(TO_DEBUG_ZERO, '/tmp/orders-inventory-zero-images.csv')
 
-    TOTAL_IMG = sum([value.get('total_delivery') for value in TOTAL_IMG_PER_ORDER.values()])
+    TOTAL_IMG = sum([value.get('total_delivery_images') for value in TOTAL_IMG_PER_ORDER.values()])
     logger.info(f'Total of delivery images found: {TOTAL_IMG}')
