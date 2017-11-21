@@ -1,6 +1,7 @@
 """Tasks querying information on Leica endpoints."""
 from briefy.common.utilities.interfaces import IRemoteRestEndpoint
 from briefy.reflex import config
+from briefy.reflex import logger
 from briefy.reflex.celery import app
 from briefy.reflex.tasks import ReflexTask
 from briefy.reflex.tasks.gdrive import folder_contents
@@ -112,6 +113,7 @@ def read_all_delivery_contents(self, csv_uri: str):
         )
         for order in orders if order.get('delivery_link')
     ]
+    logger.info(f'Starting a group task to collect info about {len(task_list)} Orders.')
     task_group = group(task_list)
     return task_group()
 

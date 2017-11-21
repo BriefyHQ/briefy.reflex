@@ -187,9 +187,6 @@ def count_assets(contents, filter_folders=False) -> TotalAssets:
         )
     )
 
-    if total.images == 0:
-        import pdb; pdb.set_trace()
-
     return total
 
 
