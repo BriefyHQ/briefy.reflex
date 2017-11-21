@@ -18,7 +18,7 @@ FOLDER_NAMES = [
 ]
 
 
-@app.task(base=ReflexTask, rate_limit='50/s')
+@app.task(base=ReflexTask, rate_limit='10/s')
 def put_gdrive_record(result: tuple, stream: str=GDRIVE_DELIVERY_STREAM) -> bool:
     """Put gdrive folder contents and orders data in a kinesis stream.
 

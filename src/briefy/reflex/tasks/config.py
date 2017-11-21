@@ -65,5 +65,8 @@ task_always_eager = False if config.ENV != 'test' else True
 task_acks_late = True
 task_reject_on_worker_lost = True
 
+# limiting the prefetch to one (default is 4) to balance better the tasks between workers
+# worker_prefetch_multiplier = 1
+
 # track tasks started but not finished
 task_track_started = True
