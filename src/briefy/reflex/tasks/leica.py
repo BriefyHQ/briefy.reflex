@@ -9,6 +9,7 @@ from briefy.reflex.tasks.kinesis import put_gdrive_record
 from celery import chain
 from celery import group
 from csv import DictReader
+from googleapiclient.errors import HttpError
 from io import StringIO
 from zope.component import getUtility
 
@@ -77,6 +78,18 @@ def orders_from_csv(csv_uri: str) -> t.Sequence[dict]:
         raise RuntimeError(f'Failure to download file from: {csv_uri}.')
 
 
+def get_folder_contents(uri: str):
+    """Return gdrive contents for a given URI and ignore 404 exceptions."""
+    result = {}
+    try:
+        if uri:
+            result = folder_contents(uri, extract_id=True, subfolders=True)
+    except HttpError as error:
+        if error.resp.status != 404:
+            raise
+    return result
+
+
 @app.task(base=ReflexTask)
 def get_assets_contents(order):
     """Get order submissions, archive and delivery folder contents."""
@@ -86,12 +99,10 @@ def get_assets_contents(order):
         assignment.get('submission_path') for assignment in order.get('assignments')
         if assignment.get('submission_path')
     ]
-    delivery_contents = folder_contents(delivery_link, extract_id=True, subfolders=True) \
-        if delivery_link else {}
-    archive_contents = folder_contents(archive_link, extract_id=True, subfolders=True) \
-        if archive_link else {}
+    delivery_contents = get_folder_contents(delivery_link)
+    archive_contents = get_folder_contents(archive_link)
     submissions_contents = [
-        folder_contents(link, extract_id=True, subfolders=True) for link in submission_links
+        get_folder_contents(link) for link in submission_links
     ]
     contents = {
         'delivery': delivery_contents,
