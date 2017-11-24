@@ -8,6 +8,7 @@ from celery import group
 from googleapiclient.errors import HttpError
 from ssl import SSLError
 
+import csv
 import os
 import typing as t
 
@@ -105,3 +106,58 @@ def run(orders):
 
     task_group = group(tasks)()
     return task_group.join()
+
+
+@app.task(
+    base=ReflexTask,
+    autoretry_for=(HttpError, SSLError, OSError),
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
+    retry_backoff=True,
+    rate_limit='80/s',
+)
+def check_order_permission(order: dict, accounts: list) -> tuple:
+    """Check if we have permission and which user."""
+    slug = order.get('briefy_id')
+    link = api.get_folder_id_from_url(order.get('delivery_link'))
+    response = None
+    while not response and accounts:
+        for user in accounts:
+            api.pool.impersonate(user)
+
+            try:
+                response = api.list(link)
+            except HttpError as error:
+                if error.resp.status == 404:
+                    response = 'NOT_FOUND'
+                    break
+            else:
+                if response:
+                    response = user
+                    break
+                else:
+                    response = 'NO_PERMISSION'
+
+            accounts.remove(user)
+
+    return slug, response
+
+
+def check_folders(file_name: str='orders-inventory-zero-images.csv',):
+    """Check if we can list the folders."""
+    with open('users.csv', 'r') as users_file:
+        accounts = [
+            item.get('email') for item in csv.DictReader(users_file)
+        ]
+
+    with open(file_name, 'r') as orders_file:
+        orders = csv.DictReader(orders_file)
+        task_list = [check_order_permission.s(item, accounts.copy()) for item in orders]
+
+    task_group = group(task_list)
+    result = task_group().join()
+
+    with open('output.csv', 'w') as output:
+        writer = csv.DictWriter(output, fieldnames=['briefy_id', 'email'])
+        writer.writeheader()
+        for slug, email in result:
+            writer.writerow(dict(briefy_id=slug, email=email))

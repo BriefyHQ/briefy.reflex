@@ -160,7 +160,7 @@ class KinesisConsumer:
 TotalAssets = namedtuple('TotalAssets', ['images', 'videos', 'others'])
 
 
-def count_assets(contents, filter_folders=False) -> TotalAssets:
+def count_assets(contents, filter_folders=True) -> TotalAssets:
     """Count the number of assets in the gdrive folder contents result.
 
     :param contents: briefy.gdrive.api.contents result.
@@ -169,7 +169,7 @@ def count_assets(contents, filter_folders=False) -> TotalAssets:
     """
     if filter_folders:
         sub_folders = [
-            folder for folder in contents.get('folders')
+            folder for folder in contents.get('folders', [])
             if folder.get('name').lower().strip() in FOLDER_NAMES
         ]
     else:
