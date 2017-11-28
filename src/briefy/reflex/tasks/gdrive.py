@@ -118,14 +118,15 @@ def run(orders):
 def check_order_permission(order: dict, accounts: list) -> tuple:
     """Check if we have permission and which user."""
     slug = order.get('briefy_id')
-    link = api.get_folder_id_from_url(order.get('delivery_link'))
+    link = order.get('delivery_link')
+    folder_id = api.get_folder_id_from_url(link)
     response = None
     while not response and accounts:
         for user in accounts:
             api.pool.impersonate(user)
 
             try:
-                response = api.list(link)
+                response = api.list(folder_id)
             except HttpError as error:
                 if error.resp.status == 404:
                     response = 'NOT_FOUND'
@@ -139,25 +140,87 @@ def check_order_permission(order: dict, accounts: list) -> tuple:
 
             accounts.remove(user)
 
-    return slug, response
+    return slug, response, link
+
+
+@app.task(
+    base=ReflexTask,
+    autoretry_for=(SSLError, OSError),
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
+    retry_backoff=True,
+    rate_limit='80/s',
+)
+def add_permission(slug: str, folder_id: str, user: str='', body: dict=None) -> tuple:
+    """Add permission to a folder in gdrive.
+
+    :param slug: order slug
+    :param folder_id: gdrive folder ID
+    :param user: if we need to impersonate another to add permission
+    :param body: gdrvive permissions.create body arguments
+    :return: true is permission is added or false if not
+    """
+    if not body:
+        body = {
+            'type': 'user',
+            'role': 'reader',
+            'emailAddress': 'management@briefy.co'
+        }
+
+    if user:
+        api.pool.impersonate(user)
+
+    try:
+        response = api.session.permissions.create(
+            fileId=folder_id,
+            sendNotificationEmail=False,
+            body=body
+        )
+    except HttpError as error:
+        response = {'id': str(error)}
+
+    return slug, str(response)
 
 
 def check_folders(file_name: str='orders-inventory-zero-images.csv',):
-    """Check if we can list the folders."""
+    """Check if we can list the folders with one the existing users.
+
+    And if we can read the folder, create a new read permission to management@briefy.co.
+
+    :param file_name: csv file with the orders we could not find any image.
+    :return: None
+    """
     with open('users.csv', 'r') as users_file:
         accounts = [
             item.get('email') for item in csv.DictReader(users_file)
         ]
 
     with open(file_name, 'r') as orders_file:
-        orders = csv.DictReader(orders_file)
+        orders = list(csv.DictReader(orders_file))
         task_list = [check_order_permission.s(item, accounts.copy()) for item in orders]
 
     task_group = group(task_list)
     result = task_group().join()
 
-    with open('output.csv', 'w') as output:
-        writer = csv.DictWriter(output, fieldnames=['briefy_id', 'email'])
+    add_permission_list = []
+    for slug, email, link in result:
+        if email not in ('NOT_FOUND', 'NO_PERMISSION'):
+            folder_id = api.get_folder_id_from_url(link)
+            add_permission_list.append(add_permission.s(slug, folder_id, email))
+
+    add_permission_group = group(add_permission_list)
+    permission_result = add_permission_group().join()
+    permission_result_map = {slug: result for slug, result in permission_result}
+
+    with open('folder_permissions.csv', 'w') as output:
+        fieldnames = ['briefy_id', 'email', 'add_permission', 'link']
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
         writer.writeheader()
-        for slug, email in result:
-            writer.writerow(dict(briefy_id=slug, email=email))
+        for slug, email, link in result:
+            writer.writerow(
+                dict(
+                    briefy_id=slug,
+                    email=email,
+                    link=link,
+                    add_permission=permission_result_map.get(slug, False)
+                )
+            )
