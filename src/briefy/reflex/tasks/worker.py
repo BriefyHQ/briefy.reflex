@@ -2,15 +2,17 @@
 """Wrapper to execute ms.laure tasks worker."""
 from briefy.common.config import ENV
 from briefy.reflex.celery import app
+from briefy.reflex.config import CELERY_CONCURRENCY_DEFAULT
+from briefy.reflex.config import CELERY_LOG_LEVEL
 
 
 def main():
     """Start celery worker."""
     argv = [
         'worker',
-        '--concurrency=3',
+        f'--concurrency={CELERY_CONCURRENCY_DEFAULT}',
         '--events',
-        '--loglevel=INFO',
+        f'--loglevel={CELERY_LOG_LEVEL}',
     ]
     if ENV in ('production', 'staging', 'development'):
         argv.append('--uid=33')

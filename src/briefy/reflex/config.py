@@ -25,3 +25,20 @@ TMP_PATH = config('TMP_PATH', default='/tmp/assets')
 
 # aws assets base
 AWS_ASSETS_SOURCE = config('AWS_ASSETS_SOURCE', default='source/assets')
+
+# celery
+CELERY_CONCURRENCY_DEFAULT = config('CELERY_CONCURRENCY_DEFAULT', default=2)
+CELERY_CONCURRENCY_GDRIVE = config('CELERY_CONCURRENCY_GDRIVE', default=2)
+CELERY_CONCURRENCY_S3 = config('CELERY_CONCURRENCY_S3', default=2)
+CELERY_LOG_LEVEL = config('CELERY_LOG_LEVEL', default='INFO')
+CELERY_DEFAULT_QUEUE = config('CELERY_DEFAULT_QUEUE', default='briefy_reflex')
+CELERY_DEFAULT_QUEUE_DRIVE = config('CELERY_DEFAULT_QUEUE_DRIVE', default='briefy_reflex_gdrive')
+CELERY_DEFAULT_QUEUE_S3 = config('CELERY_DEFAULT_QUEUE_S3', default='briefy_reflex_s3')
+TASK_MAX_RETRY = config('TASK_MAX_RETRY', cast=int, default='10')
+GDRIVE_RATE_LIMIT = config('GDRIVE_RATE_LIMIT', default='10/s')
+
+# kinesis
+GDRIVE_DELIVERY_STREAM = config('GDRIVE_DELIVERY_STREAM', default='gdrive_delivery_contents')
+
+# flower monitor config
+FLOWER_COOKIE_SECRET = config('COOKIE_SECRET', default='304f805a-532f-41f0-9fd1-e38fa340e77c')

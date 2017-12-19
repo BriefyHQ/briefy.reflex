@@ -14,6 +14,8 @@ requires = [
     'briefy.common[db]',
     'briefy.gdrive',
     'celery',
+    'eventlet',
+    'flower',
     'prettyconf',
     'setuptools',
 ]
@@ -25,7 +27,7 @@ test_requirements = [
 
 setup(
     name='briefy.reflex',
-    version='0.1.0',
+    version='1.0.0',
     description='Copy of assets from Google Drive to S3 and add them to briefy.alexandria.',
     long_description=README + '\n\n' + CHANGES,
     classifiers=[

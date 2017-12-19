@@ -8,10 +8,15 @@ from briefy.reflex.tasks import leica
 from briefy.reflex.tasks import gdrive
 from briefy.reflex.tasks import s3
 from briefy.reflex.tasks import ReflexTask
+from briefy.reflex.tasks.kinesis import FOLDER_NAMES
 from celery import chain
 from celery import group
+from celery.result import GroupResult
+from requests.exceptions import ConnectionError
 from slugify import slugify
+from urllib3.exceptions import ProtocolError
 from zope.component import getUtility
+
 
 import enum
 import typing as t
@@ -25,7 +30,13 @@ class AssetsImportResult(enum.Enum):
     failure = 'failure'
 
 
-@app.task(bind=True, base=ReflexTask)
+@app.task(
+    bind=True,
+    base=ReflexTask,
+    autoretry_for=(ConnectionError, ProtocolError, RuntimeError, OSError),
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
+    retry_backoff=True,
+)
 def create_collections(self, order_payload: dict) -> dict:
     """Create all collections in Alexandria if the do not exists.
 
@@ -46,7 +57,7 @@ def create_collections(self, order_payload: dict) -> dict:
         result = library_api.get(item.id)
         if not result:
             payload = {
-                'slug': slugify(item.title),
+                'slug': item.slug,
                 'id': item.id,
                 'title': item.title,
                 'description': item.description,
@@ -60,11 +71,12 @@ def create_collections(self, order_payload: dict) -> dict:
         parent_id = result.get('id')
 
     if order.requirement_items:
-        for item in order.requirement_items:
+        for i, item in enumerate(order.requirement_items):
             result = library_api.get(item.id)
             if not result:
+                category_name = item._get('name', f'ItemName-{i}')
                 payload = {
-                    'slug': item.folder_name,
+                    'slug': slugify(category_name),
                     'id': item.id,
                     'title': item.category,
                     'description': item._get('description', ''),
@@ -83,7 +95,12 @@ def create_collections(self, order_payload: dict) -> dict:
     return library_api.get(order.id)
 
 
-@app.task(base=ReflexTask)
+@app.task(
+    base=ReflexTask,
+    autoretry_for=(ConnectionError, ProtocolError, RuntimeError, OSError),
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
+    retry_backoff=True,
+)
 def add_or_update_asset(image_payload: dict, collection_payload: dict) -> t.Tuple[str, str]:
     """Add one assets in Alexandria if it do not exists.
 
@@ -131,12 +148,13 @@ def add_or_update_asset(image_payload: dict, collection_payload: dict) -> t.Tupl
         data = library_api.post(payload)
     else:
         data = data[0]
-        data = library_api.get(data.get('id'))
-        if collection.id not in data.get('collections'):
-            data.get('collections').append(collection.id)
-            data = library_api.put(data)
-
         asset_id = data.get('id')
+        data = library_api.get(asset_id)
+        asset_collections = data.get('collections')
+        if collection.id not in asset_collections:
+            asset_collections.append(collection.id)
+            data = library_api.put(asset_id, data)
+
         file_name = f'{asset_id}.{extension}'
 
     if not data:
@@ -168,27 +186,37 @@ def create_assets(collection_payload: dict, order_payload: dict) -> group:
     tasks = []
     if order.requirement_items:
         for item in order.requirement_items:
-            folder_contents = gdrive.folder_contents(item.folder_id)
+            folder_contents = gdrive.folder_contents.delay(item.folder_id).get()
             images = folder_contents.get('images')
             collection_payload = library_api.get(item.id)
             image_tasks = [
                 chain(
                     add_or_update_asset.s(image, collection_payload),
-                    gdrive.download_file.s(image),
-                    s3.upload_file.s()
+                    s3.download_and_upload_file.s(image),
                 ) for image in images
             ]
 
             tasks.extend(image_tasks)
 
     else:
-        folder_contents = gdrive.folder_contents(order.delivery.gdrive, extract_id=True)
+        folder_contents = gdrive.folder_contents.delay(
+            order.delivery.gdrive,
+            extract_id=True
+        ).get()
         images = folder_contents.get('images')
+        sub_folders = [
+            folder for folder in folder_contents.get('folders')
+            if folder.get('name').lower().strip() in FOLDER_NAMES
+        ]
+
+        # make sure que get images also from sub folders
+        for folder in sub_folders:
+            images.extend(folder.get('images'))
+
         image_tasks = [
             chain(
                 add_or_update_asset.s(image, collection_payload),
-                gdrive.download_file.s(image),
-                s3.upload_file.s()
+                s3.download_and_upload_file.s(image),
             ) for image in images
         ]
         tasks.extend(image_tasks)
@@ -196,29 +224,51 @@ def create_assets(collection_payload: dict, order_payload: dict) -> group:
     return group(tasks)
 
 
-def run(order, async=False) -> tuple:
-    """Execute task."""
+@app.task(
+    base=ReflexTask,
+    autoretry_for=(ConnectionError, ProtocolError, RuntimeError, OSError),
+    retry_kwargs={'max_retries': config.TASK_MAX_RETRY},
+    retry_backoff=True,
+)
+def add_order(order: dict, from_csv: bool=False) -> GroupResult:
+    """Upload one order to alexandria library.
+
+    :param order: order payload
+    :param from_csv: means that the order payload is from the csv report and we need to query leica
+    :return: async group result fro m celery group execution
+    """
+    if from_csv:
+        order = leica.get_order(order.get('uid'))
     collection = create_collections(order)
-    result = create_assets(collection, order)()
-    status = AssetsImportResult.success
+    return create_assets(collection, order)()
 
-    if not async:
-        assets = result.join()
-        result = {'assets': assets}
 
+@app.task(base=ReflexTask)
+def run(order) -> tuple:
+    """Upload one order to alexandria library.
+
+    This will run synchronously.
+    """
+    result = add_order(order)
+    assets = result.join()
+    success = result.status == 'SUCCESS'
+    status = AssetsImportResult.success if success else AssetsImportResult.failure
+    result = {'assets': assets}
     return status, result
 
 
-def main():
-    """Create assets for all orders in one project."""
-    orders = leica.run()
-    task_results = []
-    for order in orders:
-        status, result = run(order, async=True)
-        task_results.append(result)
+def main(uri: str, chunk_size=10) -> list:
+    """Create assets for all orders in one project.
 
-    results = []
-    for task in task_results:
-        results.extend(task.join())
-
-    return results
+    :param uri: link to all orders csv file
+    :param chunk_size: number of tasks per chunk of execution
+    :return: list of celery async result instances, the number depends of the chunk size
+    """
+    orders = [
+        order for order in leica.orders_from_csv(uri)
+        if order.get('order_status') == 'accepted' and order.get('delivery_link')
+    ]
+    number_of_orders = len(orders)
+    number_of_chunks = number_of_orders // chunk_size
+    param_list = [(order, True) for order in orders]
+    return add_order.chunks(param_list, number_of_chunks).apply_async()
